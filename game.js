@@ -29,6 +29,7 @@ let sceneLight2;
 
 // Game stuff
 let playerObject; 
+let itemObject;
 
 let wDown = false;
 let aDown = false;
@@ -86,8 +87,13 @@ let init = () => {
 		xPosition: 0,
 		yPosition: 0,
 		rotation: 0,
+		xTarget: 0,
+		yTarget: 0,
 		releasedGrab: true,
 		holdingItem: false,
+	};
+	itemObject = {
+		onTopTable: true,
 	}
 
 	addEventListener("keydown", keyDownFunction);
@@ -119,12 +125,30 @@ let renderFrame = () => {
 	playerMesh.rotation.z = playerObject.rotation;
 	if (playerObject.holdingItem) {
 		itemMesh.parent = playerMesh;
-		itemMesh.position.set(1, 0, 0);
+		itemMesh.position.set(1, 0, 0.5);
 	}
 	else {
-		itemMesh.parent = tableMesh;
+		if (itemObject.onTopTable) {
+			itemMesh.parent = tableMesh;
+		}
+		else {
+			itemMesh.parent = tableMesh2;
+		}
 		itemMesh.position.set(0, 0, 1);
 	}
+	if (playerObject.xTarget === 3 && playerObject.yTarget === -3) {
+		tableMaterial2.color.setHex(0xddbb33);
+	}
+	else {
+		tableMaterial2.color.setHex(0xccaa22);
+	}
+	if (playerObject.xTarget === 3 && playerObject.yTarget === 3) {
+		tableMaterial.color.setHex(0xddbb33);
+	}
+	else {
+		tableMaterial.color.setHex(0xccaa22);
+	}
+	
 	renderer.render(scene, camera);
 }
 
@@ -218,13 +242,36 @@ let gameLogic = () => {
 		playerObject.xSpeed *= 0.9;
 		playerObject.ySpeed *= 0.9;
 	}
+	playerObject.xTarget = Math.round(playerObject.xPosition + Math.cos(playerObject.rotation));
+	playerObject.yTarget = Math.round(playerObject.yPosition + Math.sin(playerObject.rotation));
 
 	// World Interaction
 
 	if (pDown) {
 		if (playerObject.releasedGrab) {
 			// Grab input: try to grab or put down an item
-			playerObject.holdingItem = !playerObject.holdingItem;
+			if (playerObject.xTarget === 3 && playerObject.yTarget === 3) {
+				if (playerObject.holdingItem) {
+					// Put item down
+					playerObject.holdingItem = false;
+					itemObject.onTopTable = true;
+				}
+				else if (itemObject.onTopTable) {
+					// Pick item up
+					playerObject.holdingItem = true;
+				}
+			}
+			else if (playerObject.xTarget === 3 && playerObject.yTarget === -3) {
+				if (playerObject.holdingItem) {
+					// Put item down
+					playerObject.holdingItem = false;
+					itemObject.onTopTable = false;
+				}
+				else if (!itemObject.onTopTable) {
+					// Pick item up
+					playerObject.holdingItem = true;
+				}
+			}
 		}
 		playerObject.releasedGrab = false;
 	}
