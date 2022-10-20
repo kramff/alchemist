@@ -24,6 +24,10 @@ let sphereGeometry;
 let itemMaterial;
 let itemMesh;
 
+let smallRectGeometry;
+let progressMaterial;
+let progressMesh;
+
 let sceneLight;
 let sceneLight2;
 
@@ -74,6 +78,13 @@ let init = () => {
 	itemMesh.position.set(3, 3, 1);
 	scene.add(itemMesh);
 
+	smallRectGeometry = new THREE.PlaneGeometry(0.9, 0.3);
+	progressMaterial = new THREE.MeshToonMaterial({color: 0x33ffbb});
+	progressMesh = new THREE.Mesh(smallRectGeometry, progressMaterial);
+	progressMesh.position.set(0, 0.3, 0.3);
+	itemMesh.add(progressMesh);
+	progressMesh.scale.x = 0;
+
 	sceneLight = new THREE.PointLight(0xff9999, 0.8, 14);
 	sceneLight.position.set(4, 4, 4);
 	scene.add(sceneLight);
@@ -94,6 +105,8 @@ let init = () => {
 	};
 	itemObject = {
 		onTopTable: true,
+		chopped: false,
+		progress: 0,
 	}
 
 	addEventListener("keydown", keyDownFunction);
@@ -148,6 +161,20 @@ let renderFrame = () => {
 	else {
 		tableMaterial.color.setHex(0xccaa22);
 	}
+	if (itemObject.chopped) {
+		itemMaterial.color.setHex(0xdd6677);
+		progressMesh.scale.x = 0;
+	}
+	else {
+		progressMesh.scale.x = Math.min(itemObject.progress, 200) / 200;
+	}
+	if (playerObject.holdingItem) {
+		itemMesh.rotation.z = playerObject.rotation * -1;
+	}
+	else {
+		itemMesh.rotation.z = 0;
+	}
+	
 	
 	renderer.render(scene, camera);
 }
@@ -277,6 +304,19 @@ let gameLogic = () => {
 	}
 	else {
 		playerObject.releasedGrab = true;
+	}
+	if (oDown) {
+		// Interact button: can make progress on item
+		if (!playerObject.holdingItem) {
+			if ((playerObject.xTarget === 3 && playerObject.yTarget === 3 && itemObject.onTopTable) ||
+				(playerObject.xTarget === 3 && playerObject.yTarget === -3 && !itemObject.onTopTable)) {
+				// Make progress
+				itemObject.progress += 1;
+				if (itemObject.progress >= 200) {
+					itemObject.chopped = true;
+				}
+			}
+		}
 	}
 }
 
