@@ -33,7 +33,59 @@ let sceneLight2;
 
 // Game stuff
 let playerObject; 
+let playerList = [];
+
+let applianceList = [];
+
 let itemObject;
+let itemList = [];
+
+let createPlayer = () => {
+	return {
+		type: "player",
+		xPosition: 0,
+		yPosition: 0,
+		xSpeed: 0,
+		ySpeed: 0,
+		rotation: 0,
+		xTarget: 0,
+		yTarget: 0,
+		hasItem: false,
+		item: undefined,
+		upPressed: false,
+		rightPressed: false,
+		downPressed: false,
+		leftPressed: false,
+		grabPressed: false,
+		usePressed: false,
+		anchorPressed: false,
+		releasedGrab: true,
+	};
+}
+
+let createAppliance = (applianceType) => {
+	return {
+		type: "appliance",
+		subType: applianceType,
+		xPosition: 0,
+		yPosition: 0,
+		rotation: 0,
+		hasItem: false,
+		item: undefined,
+	};
+}
+
+let createItem = (itemType) => {
+	return {
+		type: "item",
+		chopped: false,
+		progress: 0,
+		subType: itemType,
+		holder: undefined,
+		heldByPlayer: false,
+		heldByAppliance: false,
+	};
+}
 
 let wDown = false;
 let aDown = false;
@@ -46,15 +98,16 @@ let spaceDown = false;
 let init = () => {
 	scene = new THREE.Scene();
 	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+	camera.position.z = 10;
 	renderer = new THREE.WebGLRenderer();
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	document.body.appendChild(renderer.domElement);
 
 	cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
 	playerMaterial = new THREE.MeshToonMaterial({color: 0x22ff22});
+
 	playerMesh = new THREE.Mesh(cubeGeometry, playerMaterial);
 	scene.add(playerMesh);
-	camera.position.z = 10;
 
 	planeGeometry = new THREE.PlaneGeometry(10, 10);
 	floorMaterial = new THREE.MeshToonMaterial({color: 0x504030});
@@ -92,17 +145,7 @@ let init = () => {
 	sceneLight2 = new THREE.AmbientLight(0xffdddd, 0.4);
 	scene.add(sceneLight2);
 
-	playerObject = {
-		xSpeed: 0,
-		ySpeed: 0,
-		xPosition: 0,
-		yPosition: 0,
-		rotation: 0,
-		xTarget: 0,
-		yTarget: 0,
-		releasedGrab: true,
-		holdingItem: false,
-	};
+	playerObject = createPlayer();
 	itemObject = {
 		onTopTable: true,
 		chopped: false,
@@ -371,4 +414,12 @@ let resizeFunction = (event) => {
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
+}
+let meshToScreenCoordinates = (mesh) => {
+	let vector = new THREE.Vector3();
+	mesh.updateMatrixWorld();
+	vector.setFromMatrixPosition(mesh.matrixWorld);
+	vector.project(camera);
+	//not using window.devicePixelRatio for now
+	return new THREE.Vector2(Math.round((0.5 + vector.x / 2) * window.innerWidth), Math.round((0.5 - vector.y / 2) * window.innerHeight));
 }
