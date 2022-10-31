@@ -16,9 +16,10 @@ let floorMaterial;
 let floorMesh;
 
 let tableMaterial;
+let tableMaterialHighlight;
 let tableMesh;
-let tableMaterial2;
-let tableMesh2;
+// let tableMaterial2;
+// let tableMesh2;
 
 let sphereGeometry;
 let itemMaterial;
@@ -31,17 +32,23 @@ let progressMesh;
 let sceneLight;
 let sceneLight2;
 
-// Game stuff
 let playerObject; 
 let playerList = [];
+let playerMeshList = [];
 
 let applianceList = [];
+let applianceMeshList = [];
 
 let itemObject;
 let itemList = [];
+let itemMeshList = [];
+
+let connectGameObjectToSceneMesh = (object, mesh) => {
+	object.connectedMesh = mesh;
+}
 
 let createPlayer = () => {
-	return {
+	let newPlayer = {
 		type: "player",
 		xPosition: 0,
 		yPosition: 0,
@@ -60,19 +67,43 @@ let createPlayer = () => {
 		usePressed: false,
 		anchorPressed: false,
 		releasedGrab: true,
+		connectedMesh: undefined,
 	};
+	playerList.push(newPlayer);
+	return newPlayer;
+}
+let createPlayerMesh = () => {
+	let newPlayerMesh = new THREE.Mesh(cubeGeometry, playerMaterial);
+	scene.add(newPlayerMesh);
+	playerMeshList.push(playerMesh);
+	return newPlayerMesh;
 }
 
-let createAppliance = (applianceType) => {
-	return {
+let createAppliance = (applianceType, xPosition, yPosition) => {
+	let newAppliance = {
 		type: "appliance",
 		subType: applianceType,
-		xPosition: 0,
-		yPosition: 0,
+		xPosition: xPosition || 0,
+		yPosition: yPosition || 0,
 		rotation: 0,
 		hasItem: false,
 		item: undefined,
+		connectedMesh: undefined,
 	};
+	applianceList.push(newAppliance);
+	return newAppliance;
+}
+let createApplianceMesh = (applianceType) => {
+	let newApplianceMesh;
+	if (applianceType === "table") {
+		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
+	}
+	else {
+		console.log("appliance type missing: " + applianceType);
+	}
+	scene.add(newApplianceMesh);
+	applianceMeshList.push(newApplianceMesh);
+	return newApplianceMesh;
 }
 
 let createItem = (itemType) => {
@@ -84,7 +115,20 @@ let createItem = (itemType) => {
 		holder: undefined,
 		heldByPlayer: false,
 		heldByAppliance: false,
+		connectedMesh: undefined,
 	};
+}
+let createItemMesh = (itemType) => {
+	let newItemMesh;
+	if (itemType === "orb") {
+		newItemMesh = new THREE.Mesh(sphereGeometry, itemMesh);
+	}
+	else {
+		console.log("item type missing: " + itemType);
+	}
+	scene.add(newItemMesh);
+	itemMeshList.push(newItemMesh);
+	return newItemMesh;
 }
 
 let wDown = false;
@@ -103,54 +147,69 @@ let init = () => {
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	document.body.appendChild(renderer.domElement);
 
+	// Geometries
 	cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-	playerMaterial = new THREE.MeshToonMaterial({color: 0x22ff22});
-
-	playerMesh = new THREE.Mesh(cubeGeometry, playerMaterial);
-	scene.add(playerMesh);
-
 	planeGeometry = new THREE.PlaneGeometry(10, 10);
+	sphereGeometry = new THREE.SphereGeometry(0.25, 6, 6);
+	smallRectGeometry = new THREE.PlaneGeometry(0.9, 0.3);
+
+	// Materials
+	playerMaterial = new THREE.MeshToonMaterial({color: 0x22ff22});
 	floorMaterial = new THREE.MeshToonMaterial({color: 0x504030});
+	tableMaterial = new THREE.MeshToonMaterial({color: 0xccaa22});
+	tableMaterialHighlight = new THREE.MeshToonMaterial({color: 0xddbb33});
+	itemMaterial = new THREE.MeshToonMaterial({color: 0x2266dd});
+	progressMaterial = new THREE.MeshToonMaterial({color: 0x33ffbb});
+
+	// Single use meshes
 	floorMesh = new THREE.Mesh(planeGeometry, floorMaterial);
 	floorMesh.position.set(0, 0, -0.5);
 	scene.add(floorMesh);
 
-	tableMaterial = new THREE.MeshToonMaterial({color: 0xccaa22});
-	tableMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
-	tableMesh.position.set(3, 3, 0);
-	scene.add(tableMesh);
-
-	tableMaterial2 = new THREE.MeshToonMaterial({color: 0xccaa22});
-	tableMesh2 = new THREE.Mesh(cubeGeometry, tableMaterial2);
-	tableMesh2.position.set(3, -3, 0);
-	scene.add(tableMesh2);
-
-	sphereGeometry = new THREE.SphereGeometry(0.25, 6, 6);
-	itemMaterial = new THREE.MeshToonMaterial({color: 0x2266dd});
-	itemMesh = new THREE.Mesh(sphereGeometry, itemMaterial);
-	itemMesh.position.set(3, 3, 1);
-	scene.add(itemMesh);
-
-	smallRectGeometry = new THREE.PlaneGeometry(0.9, 0.3);
-	progressMaterial = new THREE.MeshToonMaterial({color: 0x33ffbb});
-	progressMesh = new THREE.Mesh(smallRectGeometry, progressMaterial);
-	progressMesh.position.set(0, 0.3, 0.3);
-	itemMesh.add(progressMesh);
-	progressMesh.scale.x = 0;
-
+	// Lights
 	sceneLight = new THREE.PointLight(0xff9999, 0.8, 14);
 	sceneLight.position.set(4, 4, 4);
 	scene.add(sceneLight);
-
 	sceneLight2 = new THREE.AmbientLight(0xffdddd, 0.4);
 	scene.add(sceneLight2);
 
+
+	//tableMesh = createApplianceMesh("table");
+
+	//tableMesh.position.set(3, 3, 0);
+	// scene.add(tableMesh);
+
+	// tableMaterial2 = new THREE.MeshToonMaterial({color: 0xccaa22});
+	// tableMesh2 = new THREE.Mesh(cubeGeometry, tableMaterial2);
+	// tableMesh2.position.set(3, -3, 0);
+	// scene.add(tableMesh2);
+
+	// itemMesh = new THREE.Mesh(sphereGeometry, itemMaterial);
+	// itemMesh.position.set(3, 3, 1);
+	// scene.add(itemMesh);
+
+	// progressMesh = new THREE.Mesh(smallRectGeometry, progressMaterial);
+	// progressMesh.position.set(0, 0.3, 0.3);
+	// itemMesh.add(progressMesh);
+	// progressMesh.scale.x = 0;
+
+
 	playerObject = createPlayer();
-	itemObject = {
-		onTopTable: true,
-		chopped: false,
-		progress: 0,
+	playerMesh = createPlayerMesh();
+
+	connectGameObjectToSceneMesh(playerObject, playerMesh);
+
+	for (var i = 0; i < 4; i++) {
+		let newTable = createAppliance("table", i * 2 - 3, i - 2);
+		let newTableMesh = createApplianceMesh("table");
+		connectGameObjectToSceneMesh(newTable, newTableMesh);
 	}
+
+	// itemObject = {
+		// onTopTable: true,
+		// chopped: false,
+		// progress: 0,
+	// }
 
 	addEventListener("keydown", keyDownFunction);
 	addEventListener("keyup", keyUpFunction);
@@ -184,11 +243,12 @@ let renderFrame = () => {
 		itemMesh.position.set(1, 0, 0.5);
 	}
 	else {
-		if (itemObject.onTopTable) {
-			itemMesh.parent = tableMesh;
+		// if (itemObject.onTopTable) {
+		if (false) {
+			//itemMesh.parent = tableMesh;
 		}
 		else {
-			itemMesh.parent = tableMesh2;
+			//itemMesh.parent = tableMesh2;
 		}
 		itemMesh.position.set(0, 0, 1);
 	}
