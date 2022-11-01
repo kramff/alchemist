@@ -9,7 +9,7 @@ let renderer;
 // Specific render stuff
 let cubeGeometry;
 let playerMaterial;
-let playerMesh;
+// let playerMesh;
 
 let planeGeometry;
 let floorMaterial;
@@ -17,13 +17,13 @@ let floorMesh;
 
 let tableMaterial;
 let tableMaterialHighlight;
-let tableMesh;
+// let tableMesh;
 // let tableMaterial2;
 // let tableMesh2;
 
 let sphereGeometry;
 let itemMaterial;
-let itemMesh;
+// let itemMesh;
 
 let smallRectGeometry;
 let progressMaterial;
@@ -32,7 +32,7 @@ let progressMesh;
 let sceneLight;
 let sceneLight2;
 
-let playerObject; 
+// let playerObject; 
 let playerList = [];
 let playerMeshList = [];
 
@@ -58,7 +58,7 @@ let createPlayer = () => {
 		xTarget: 0,
 		yTarget: 0,
 		hasItem: false,
-		item: undefined,
+		heldItem: undefined,
 		upPressed: false,
 		rightPressed: false,
 		downPressed: false,
@@ -75,7 +75,7 @@ let createPlayer = () => {
 let createPlayerMesh = () => {
 	let newPlayerMesh = new THREE.Mesh(cubeGeometry, playerMaterial);
 	scene.add(newPlayerMesh);
-	playerMeshList.push(playerMesh);
+	playerMeshList.push(newPlayerMesh);
 	return newPlayerMesh;
 }
 
@@ -87,7 +87,7 @@ let createAppliance = (applianceType, xPosition, yPosition) => {
 		yPosition: yPosition || 0,
 		rotation: 0,
 		hasItem: false,
-		item: undefined,
+		heldItem: undefined,
 		connectedMesh: undefined,
 	};
 	applianceList.push(newAppliance);
@@ -121,7 +121,7 @@ let createItem = (itemType) => {
 let createItemMesh = (itemType) => {
 	let newItemMesh;
 	if (itemType === "orb") {
-		newItemMesh = new THREE.Mesh(sphereGeometry, itemMesh);
+		newItemMesh = new THREE.Mesh(sphereGeometry, newItemMesh);
 	}
 	else {
 		console.log("item type missing: " + itemType);
@@ -194,15 +194,23 @@ let init = () => {
 	// progressMesh.scale.x = 0;
 
 
-	playerObject = createPlayer();
-	playerMesh = createPlayerMesh();
+	let newPlayerObject = createPlayer();
+	let newPlayerMesh = createPlayerMesh();
 
-	connectGameObjectToSceneMesh(playerObject, playerMesh);
+	connectGameObjectToSceneMesh(newPlayerObject, newPlayerMesh);
 
-	for (var i = 0; i < 4; i++) {
+	for (var i = 0; i < 6; i++) {
 		let newTable = createAppliance("table", i * 2 - 3, i - 2);
 		let newTableMesh = createApplianceMesh("table");
+		newTableMesh.position.x = newTable.xPosition;
+		newTableMesh.position.y = newTable.yPosition;
 		connectGameObjectToSceneMesh(newTable, newTableMesh);
+		if (i % 2 === 0) {
+			let newItem = createItem("orb");
+			let newItemMesh = createItemMesh("orb");
+			connectGameObjectToSceneMesh(newItem, newItemMesh);
+			transferItem(undefined, newTable, newItem);
+		}
 	}
 
 	// itemObject = {
@@ -235,192 +243,197 @@ let gameLoop = () => {
 }
 
 let renderFrame = () => {
-	playerMesh.position.x = playerObject.xPosition;
-	playerMesh.position.y = playerObject.yPosition;
-	playerMesh.rotation.z = playerObject.rotation;
-	if (playerObject.holdingItem) {
-		itemMesh.parent = playerMesh;
-		itemMesh.position.set(1, 0, 0.5);
-	}
-	else {
-		// if (itemObject.onTopTable) {
-		if (false) {
-			//itemMesh.parent = tableMesh;
+	playerList.forEach((playerObject) => {
+		let playerMesh = playerObject.connectedMesh
+		playerMesh.position.x = playerObject.xPosition;
+		playerMesh.position.y = playerObject.yPosition;
+		playerMesh.rotation.z = playerObject.rotation;
+		applianceList.forEach((applianceObject) => {
+			if (playerObject.xTarget === applianceObject.xPosition &&
+				playerObject.yTarget === applianceObject.yPosition) {
+				applianceObject.connectedMesh.material = tableMaterialHighlight;
+			}
+			else {
+				applianceObject.connectedMesh.material = tableMaterial;
+			}
+		});
+	});
+	itemList.forEach((itemObject) => {
+		itemObject.connectedMesh.parent = itemObject.holder.connectedMesh;
+		if (itemObject.heldByPlayer) {
+			itemMesh.position.set(1, 0, 0.5);
+			itemMesh.rotation.z = itemObject.holder.rotation * -1;
 		}
-		else {
-			//itemMesh.parent = tableMesh2;
+		else if (itemObject.heldByAppliance) {
+			itemMesh.position.set(0, 0, 1);
+			itemMesh.rotation.z = 0;
 		}
-		itemMesh.position.set(0, 0, 1);
-	}
-	if (playerObject.xTarget === 3 && playerObject.yTarget === -3) {
-		tableMaterial2.color.setHex(0xddbb33);
-	}
-	else {
-		tableMaterial2.color.setHex(0xccaa22);
-	}
-	if (playerObject.xTarget === 3 && playerObject.yTarget === 3) {
-		tableMaterial.color.setHex(0xddbb33);
-	}
-	else {
-		tableMaterial.color.setHex(0xccaa22);
-	}
-	if (itemObject.chopped) {
-		itemMaterial.color.setHex(0xdd6677);
-		progressMesh.scale.x = 0;
-	}
-	else {
-		progressMesh.scale.x = Math.min(itemObject.progress, 200) / 200;
-	}
-	if (playerObject.holdingItem) {
-		itemMesh.rotation.z = playerObject.rotation * -1;
-	}
-	else {
-		itemMesh.rotation.z = 0;
-	}
-	
-	
+	});
 	renderer.render(scene, camera);
 }
 
 
 let gameLogic = () => {
 
-	// Player Movement
+	playerList.forEach((playerObject) => {
+		// Player Movement
 
-	let xSpeedChange = 0;
-	let ySpeedChange = 0;
-	if (wDown) {
-		ySpeedChange += 0.02;
-	}
-	if (aDown) {
-		xSpeedChange -= 0.02;
-	}
-	if (sDown) {
-		ySpeedChange -= 0.02;
-	}
-	if (dDown) {
-		xSpeedChange += 0.02;
-	}
-	// Diagonal movement
-	if (xSpeedChange !== 0 && ySpeedChange !== 0) {
-		xSpeedChange /= Math.SQRT2;
-		ySpeedChange /= Math.SQRT2;
-	}
-	let anyDirectionPressed = (xSpeedChange !== 0 || ySpeedChange !== 0);
-	let rotationChange = 0;
-	let targetRotation = Math.atan2(ySpeedChange, xSpeedChange);
-	let oppositeRotation = false;
-	if (anyDirectionPressed) {
-		if (playerObject.rotation !== targetRotation) {
-			var targetRotationDifference = Math.abs(playerObject.rotation - targetRotation);
-			// Apply spin to player's rotation toward targetRotation
-			if (playerObject.rotation > targetRotation) {
-				rotationChange -= 0.23;
+		let xSpeedChange = 0;
+		let ySpeedChange = 0;
+		if (wDown) {
+			ySpeedChange += 0.02;
+		}
+		if (aDown) {
+			xSpeedChange -= 0.02;
+		}
+		if (sDown) {
+			ySpeedChange -= 0.02;
+		}
+		if (dDown) {
+			xSpeedChange += 0.02;
+		}
+		// Diagonal movement
+		if (xSpeedChange !== 0 && ySpeedChange !== 0) {
+			xSpeedChange /= Math.SQRT2;
+			ySpeedChange /= Math.SQRT2;
+		}
+		let anyDirectionPressed = (xSpeedChange !== 0 || ySpeedChange !== 0);
+		let rotationChange = 0;
+		let targetRotation = Math.atan2(ySpeedChange, xSpeedChange);
+		let oppositeRotation = false;
+		if (anyDirectionPressed) {
+			if (playerObject.rotation !== targetRotation) {
+				var targetRotationDifference = Math.abs(playerObject.rotation - targetRotation);
+				// Apply spin to player's rotation toward targetRotation
+				if (playerObject.rotation > targetRotation) {
+					rotationChange -= 0.23;
+				}
+				else {
+					rotationChange += 0.23;
+				}
+				// If the target rotation difference is greater than pi, spin the opposite way
+				if (targetRotationDifference > Math.PI) {
+					rotationChange *= -1;
+					oppositeRotation = true;
+				}
+			}
+		}
+		let previousRotation = playerObject.rotation;
+		if (rotationChange !== 0) {
+			// Apply rotation
+			playerObject.rotation += rotationChange;
+			// Don't overshoot the targetRotation
+			if (oppositeRotation) {
+				if ((rotationChange > 0 && playerObject.rotation < targetRotation) || (rotationChange < 0 && playerObject.rotation > targetRotation)) {
+					playerObject.rotation = targetRotation; 
+				}
 			}
 			else {
-				rotationChange += 0.23;
+				if ((rotationChange > 0 && playerObject.rotation > targetRotation) || (rotationChange < 0 && playerObject.rotation < targetRotation)) {
+					playerObject.rotation = targetRotation; 
+				}
 			}
-			// If the target rotation difference is greater than pi, spin the opposite way
-			if (targetRotationDifference > Math.PI) {
-				rotationChange *= -1;
-				oppositeRotation = true;
+			// Loop around the pi to negative pi limit
+			if (playerObject.rotation > Math.PI) {
+				playerObject.rotation -= Math.PI * 2;
+				previousRotation -= Math.PI * 2;
+			}
+			if (playerObject.rotation < -Math.PI) {
+				playerObject.rotation += Math.PI * 2;
+				previousRotation += Math.PI * 2;
 			}
 		}
-	}
-	let previousRotation = playerObject.rotation;
-	if (rotationChange !== 0) {
-		// Apply rotation
-		playerObject.rotation += rotationChange;
-		// Don't overshoot the targetRotation
-		if (oppositeRotation) {
-			if ((rotationChange > 0 && playerObject.rotation < targetRotation) || (rotationChange < 0 && playerObject.rotation > targetRotation)) {
-				playerObject.rotation = targetRotation; 
+		// If turning, slow down movement
+		let rotationDifference = Math.abs(previousRotation - playerObject.rotation);
+		if (rotationDifference > 0.01) {
+			xSpeedChange *= 0.25;
+			ySpeedChange *= 0.25;
+		}
+		// Don't move while holding space
+		if (!spaceDown) {
+			playerObject.xSpeed += xSpeedChange;
+			playerObject.ySpeed += ySpeedChange;
+		}
+		playerObject.xPosition += playerObject.xSpeed;
+		playerObject.yPosition += playerObject.ySpeed;
+		playerObject.xSpeed *= 0.8;
+		playerObject.ySpeed *= 0.8;
+		// Apply more friction if stopping
+		if (!anyDirectionPressed || spaceDown) {
+			playerObject.xSpeed *= 0.9;
+			playerObject.ySpeed *= 0.9;
+		}
+		playerObject.xTarget = Math.round(playerObject.xPosition + Math.cos(playerObject.rotation));
+		playerObject.yTarget = Math.round(playerObject.yPosition + Math.sin(playerObject.rotation));
+
+		// World Interaction
+
+		if (pDown) {
+			if (playerObject.releasedGrab) {
+				// Grab input: try to grab or put down an item
+				applianceList.forEach((applianceObject) => {
+					if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
+						if (playerObject.holdingItem && !applianceObject.holdingItem) {
+							// Put down object
+							// playerObject.heldItem.heldByPlayer = false;
+							// playerObject.heldItem.heldByAppliance = true;
+							// playerObject.heldItem.holder = applianceObject;
+							// applianceObject.holdingItem = true;
+							// applianceObject.heldItem = playerObject.heldItem;
+							// playerObject.holdingItem = false;
+							// playerObject.heldItem = undefined;
+							transferItem(playerObject, applianceObject, playerObject.heldItem);
+						}
+						else if (!playerObject.holdingItem && applianceObject.holdingItem) {
+							// Pick up object
+							// applianceObject.heldItem.heldByPlayer = true;
+							// applianceObject.heldItem.heldByAppliance = false;
+							// applianceObject.heldItem.holder = playerObject;
+							// playerObject.holdingItem = true;
+							// playerObject.heldItem = applianceObject.heldItem;
+							// applianceObject.holdingItem = false;
+							// applianceObject.heldItem = undefined;
+							transferItem(applianceObject, playerObject, applianceObject.heldItem);
+						}
+					}
+				});
 			}
+			playerObject.releasedGrab = false;
 		}
 		else {
-			if ((rotationChange > 0 && playerObject.rotation > targetRotation) || (rotationChange < 0 && playerObject.rotation < targetRotation)) {
-				playerObject.rotation = targetRotation; 
-			}
+			playerObject.releasedGrab = true;
 		}
-		// Loop around the pi to negative pi limit
-		if (playerObject.rotation > Math.PI) {
-			playerObject.rotation -= Math.PI * 2;
-			previousRotation -= Math.PI * 2;
+		if (oDown) {
+			// Interact button: can make progress on item
+			// if (!playerObject.holdingItem) {
+			// 	if ((playerObject.xTarget === 3 && playerObject.yTarget === 3 && itemObject.onTopTable) ||
+			// 		(playerObject.xTarget === 3 && playerObject.yTarget === -3 && !itemObject.onTopTable)) {
+			// 		// Make progress
+			// 		itemObject.progress += 1;
+			// 		if (itemObject.progress >= 200) {
+			// 			itemObject.chopped = true;
+			// 		}
+			// 	}
+			// }
 		}
-		if (playerObject.rotation < -Math.PI) {
-			playerObject.rotation += Math.PI * 2;
-			previousRotation += Math.PI * 2;
-		}
+	});
+}
+let transferItem = (oldHolder, newHolder, item) => {
+	if (oldHolder !== undefined) {
+		oldHolder.heldItem = undefined;
+		oldHolder.holdingItem = false;
 	}
-	// If turning, slow down movement
-	let rotationDifference = Math.abs(previousRotation - playerObject.rotation);
-	if (rotationDifference > 0.01) {
-		xSpeedChange *= 0.25;
-		ySpeedChange *= 0.25;
-	}
-	// Don't move while holding space
-	if (!spaceDown) {
-		playerObject.xSpeed += xSpeedChange;
-		playerObject.ySpeed += ySpeedChange;
-	}
-	playerObject.xPosition += playerObject.xSpeed;
-	playerObject.yPosition += playerObject.ySpeed;
-	playerObject.xSpeed *= 0.8;
-	playerObject.ySpeed *= 0.8;
-	// Apply more friction if stopping
-	if (!anyDirectionPressed || spaceDown) {
-		playerObject.xSpeed *= 0.9;
-		playerObject.ySpeed *= 0.9;
-	}
-	playerObject.xTarget = Math.round(playerObject.xPosition + Math.cos(playerObject.rotation));
-	playerObject.yTarget = Math.round(playerObject.yPosition + Math.sin(playerObject.rotation));
-
-	// World Interaction
-
-	if (pDown) {
-		if (playerObject.releasedGrab) {
-			// Grab input: try to grab or put down an item
-			if (playerObject.xTarget === 3 && playerObject.yTarget === 3) {
-				if (playerObject.holdingItem) {
-					// Put item down
-					playerObject.holdingItem = false;
-					itemObject.onTopTable = true;
-				}
-				else if (itemObject.onTopTable) {
-					// Pick item up
-					playerObject.holdingItem = true;
-				}
-			}
-			else if (playerObject.xTarget === 3 && playerObject.yTarget === -3) {
-				if (playerObject.holdingItem) {
-					// Put item down
-					playerObject.holdingItem = false;
-					itemObject.onTopTable = false;
-				}
-				else if (!itemObject.onTopTable) {
-					// Pick item up
-					playerObject.holdingItem = true;
-				}
-			}
-		}
-		playerObject.releasedGrab = false;
+	newHolder.heldItem = item;
+	newHolder.holdingItem = true;
+	if (newHolder.type === "player") {
+		item.heldByPlayer = true;
+		item.heldByAppliance = false;
 	}
 	else {
-		playerObject.releasedGrab = true;
+		item.heldByPlayer = false;
+		item.heldByAppliance = true;
 	}
-	if (oDown) {
-		// Interact button: can make progress on item
-		if (!playerObject.holdingItem) {
-			if ((playerObject.xTarget === 3 && playerObject.yTarget === 3 && itemObject.onTopTable) ||
-				(playerObject.xTarget === 3 && playerObject.yTarget === -3 && !itemObject.onTopTable)) {
-				// Make progress
-				itemObject.progress += 1;
-				if (itemObject.progress >= 200) {
-					itemObject.chopped = true;
-				}
-			}
-		}
-	}
+	item.holder = newHolder;
 }
 
 let keyDownFunction = (event) => {
