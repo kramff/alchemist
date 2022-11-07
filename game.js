@@ -23,6 +23,7 @@ let tableMaterialHighlight;
 
 let sphereGeometry;
 let itemMaterial;
+let itemMaterial2;
 // let itemMesh;
 
 let smallRectGeometry;
@@ -107,7 +108,7 @@ let createApplianceMesh = (applianceType) => {
 }
 
 let createItem = (itemType) => {
-	return {
+	let newItem = {
 		type: "item",
 		chopped: false,
 		progress: 0,
@@ -117,11 +118,13 @@ let createItem = (itemType) => {
 		heldByAppliance: false,
 		connectedMesh: undefined,
 	};
+	itemList.push(newItem);
+	return newItem;
 }
 let createItemMesh = (itemType) => {
 	let newItemMesh;
 	if (itemType === "orb") {
-		newItemMesh = new THREE.Mesh(sphereGeometry, newItemMesh);
+		newItemMesh = new THREE.Mesh(sphereGeometry, itemMaterial);
 	}
 	else {
 		console.log("item type missing: " + itemType);
@@ -159,6 +162,7 @@ let init = () => {
 	tableMaterial = new THREE.MeshToonMaterial({color: 0xccaa22});
 	tableMaterialHighlight = new THREE.MeshToonMaterial({color: 0xddbb33});
 	itemMaterial = new THREE.MeshToonMaterial({color: 0x2266dd});
+	itemMaterial2 = new THREE.MeshToonMaterial({color: 0xdd2266});
 	progressMaterial = new THREE.MeshToonMaterial({color: 0x33ffbb});
 
 	// Single use meshes
@@ -259,7 +263,9 @@ let renderFrame = () => {
 		});
 	});
 	itemList.forEach((itemObject) => {
-		itemObject.connectedMesh.parent = itemObject.holder.connectedMesh;
+		let itemMesh = itemObject.connectedMesh;
+		itemMesh.parent = itemObject.holder.connectedMesh;
+		// Held by player or appliance
 		if (itemObject.heldByPlayer) {
 			itemMesh.position.set(1, 0, 0.5);
 			itemMesh.rotation.z = itemObject.holder.rotation * -1;
@@ -267,6 +273,10 @@ let renderFrame = () => {
 		else if (itemObject.heldByAppliance) {
 			itemMesh.position.set(0, 0, 1);
 			itemMesh.rotation.z = 0;
+		}
+		// Change material when progress is made
+		if (itemObject.chopped) {
+			itemMesh.material = itemMaterial2;
 		}
 	});
 	renderer.render(scene, camera);
@@ -405,6 +415,19 @@ let gameLogic = () => {
 		}
 		if (oDown) {
 			// Interact button: can make progress on item
+			applianceList.forEach((applianceObject) => {
+				if (applianceObject.holdingItem) {
+					if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
+						let targetItem = applianceObject.heldItem;
+						if (!targetItem.chopped) {
+							targetItem.progress += 1;
+						}
+						if (targetItem.progress >= 100) {
+							targetItem.chopped = true;
+						}
+					}
+				}
+			});
 			// if (!playerObject.holdingItem) {
 			// 	if ((playerObject.xTarget === 3 && playerObject.yTarget === 3 && itemObject.onTopTable) ||
 			// 		(playerObject.xTarget === 3 && playerObject.yTarget === -3 && !itemObject.onTopTable)) {
