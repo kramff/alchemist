@@ -101,7 +101,7 @@ let createApplianceMesh = (applianceType) => {
 	if (applianceType === "table") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
 	}
-	ese if (applianceType === "orbSource") {
+	else if (applianceType === "orbSource") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
 	}
 	else {
@@ -523,4 +523,30 @@ let meshToScreenCoordinates = (mesh) => {
 	vector.project(camera);
 	//not using window.devicePixelRatio for now
 	return new THREE.Vector2(Math.round((0.5 + vector.x / 2) * window.innerWidth), Math.round((0.5 - vector.y / 2) * window.innerHeight));
+}
+var socket = undefined;
+let setupNetworking = () => {
+	try {
+		var wsProtocol;
+		var socketURL;
+		if (location.href.indexOf("kramff.com") !== -1) {
+			wsProtocol = "wss://";
+			socketURL = wsProtocol + "bine.nfshost.com";
+		}
+		else {
+			wsProtocol = "ws://";
+			socketURL = (location.protocol + "//" + location.host + "/").replace(/\d+\/$/, "5000").replace("http://", wsProtocol);
+		}
+		socket = new WebSocket(socketURL);
+		socket.onopen = (data) => {
+			console.log("connected to server!");
+		}
+		socket.onmessage = (event) => {
+			console.log("got message: " + JSON.parse(event.data));
+		}
+	}
+	catch (error) {
+		console.error("Could not connect to server");
+		console.error(error);
+	}
 }
