@@ -17,6 +17,8 @@ let floorMesh;
 
 let tableMaterial;
 let tableMaterialHighlight;
+
+let orbSourceMaterial;
 // let tableMesh;
 // let tableMaterial2;
 // let tableMesh2;
@@ -97,6 +99,9 @@ let createAppliance = (applianceType, xPosition, yPosition) => {
 let createApplianceMesh = (applianceType) => {
 	let newApplianceMesh;
 	if (applianceType === "table") {
+		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
+	}
+	ese if (applianceType === "orbSource") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
 	}
 	else {
