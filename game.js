@@ -147,7 +147,41 @@ let oDown = false;
 let pDown = false;
 let spaceDown = false;
 
+let nickname = "";
+let nicknameInput;
+let makeRoomButton;
+let leaveRoomButton;
+let roomListElement;
+
 let init = () => {
+	setupNetworkConnection();
+
+	nicknameInput = document.getElementById("nickname");
+	var savedNickname = localStorage.getItem("alchemist__nickname");
+	if (savedNickname !== null) {
+		nickname = savedNickname;
+		nicknameInput.value = nickname;
+	}
+	nicknameInput.oninput = (e) => {
+		nickname = nicknameInput.value;
+		localStorage.setItem("alchemist__nickname", nickname);
+	}
+
+	makeRoomButton = document.getElementById("make_room");
+	makeRoomButton.onclick = (e) => {
+		goToView("waiting");
+	}
+
+	leaveRoomButton = document.getElementById("leave_room");
+	leaveRoomButton.onclick = (e) => {
+		goToView("entry");
+	}
+
+	roomListElement = document.getElementById("room_list");
+
+	makeRoomOption("Example's room", 1);
+
+	//nicknameInput.oninput
 	scene = new THREE.Scene();
 	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 	camera.position.z = 10;
@@ -235,6 +269,30 @@ let init = () => {
 	console.log("starting game loop");
 	lastTime = Date.now();
 	gameLoop();
+}
+
+let currentView = "entry";
+let goToView = (view) => {
+	var prevViewElement = document.getElementsByClassName("active_view").item(0);
+	var nextViewElement = document.querySelector(`[view="${view}"]`)
+	prevViewElement.classList.remove("active_view");
+	nextViewElement.classList.add("active_view");
+	currentView = view;
+}
+
+let roomJoinButtonFunction = (e) => {
+	goToView("waiting");
+}
+
+let makeRoomOption = (roomName, roomid) => {
+	var newOption = document.createElement("button");
+	newOption.classList.add("room_option_button");
+	newOption.onclick = roomJoinButtonFunction;
+	// <button class="room_option_button" roomid="1" roomName="Example's room">Join Example's room</button>
+	newOption.setAttribute("roomName", roomName);
+	newOption.setAttribute("roomid", roomid);
+	roomListElement.append(newOption);
+	newOption.textContent = `Join ${roomName}`;
 }
 
 let lastTime;
@@ -525,7 +583,7 @@ let meshToScreenCoordinates = (mesh) => {
 	return new THREE.Vector2(Math.round((0.5 + vector.x / 2) * window.innerWidth), Math.round((0.5 - vector.y / 2) * window.innerHeight));
 }
 var socket = undefined;
-let setupNetworking = () => {
+let setupNetworkConnection = () => {
 	try {
 		var wsProtocol;
 		var socketURL;

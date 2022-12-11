@@ -7,5 +7,39 @@
 	<script src="game.js"></script>
 </head>
 <body onload="init();">
+	<div class="background_over_game active_bg"></div>
+	<div class="page active_view" view="entry">
+		<div class="box entry_box">
+			<div class="box nickname_box">
+				<p>Nickname:</p>
+				<input type="text" id="nickname" placeholder="Enter nickname...">
+			</div>
+			<div class="box rooms_box">
+				<p>Rooms</p>
+				<div class="box room_list" id="room_list">
+				</div>
+				<button id="make_room">Make room</button>
+				<!-- <input type="text" id="password" placeholder="Password (leave blank if no password)"> -->
+			</div>
+		</div>
+	</div>
+	<div class="page" view="password_screen">
+		<div class="box password_box">
+			<button id="password_cancel">Cancel</button>
+			<input type="text" id="password_check" placeholder="Enter password...">
+			<button id="password_confirm">Confirm</button>
+		</div>
+	</div>
+	<div class="page" view="waiting">
+		<div class="box waiting_box">
+			<button id="leave_room">Leave room</button>
+			<div class="team_box" id="team_1"></div>
+			<div class="team_box" id="team_2"></div>
+		</div>
+	</div>
+	<div class="page" view="game">
+		<div class="game_overlay"></div>
+		<div class="game_ui"></div>
+	</div>
 </body>
 </html>

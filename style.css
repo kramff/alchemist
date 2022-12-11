@@ -1,4 +1,99 @@
 body {
 	margin: 0;
+	background-color: #101010;
+	font-size: 22px;
+	color: #f0f0f0;
+	font-family: sans-serif;
+}
+div {
+	position: relative;
+	z-index: 1;
+}
+svg {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+}
+input {
+	background-color: #404040;
+	color: #f0f0f0;
+	margin-top: 20px;
+	margin-bottom: 20px;
+}
+input::placeholder {
+	color: #b0b0b0;
+	border-color: #767676;
+}
+button {
+	background-color: #404040;
+	border-color: #767676;
+	color: #f0f0f0;
+	margin-top: 20px;
+	margin-bottom: 20px;
+}
+
+p {
+	margin: 0;
+	margin-top: 20px;
+	margin-bot: 20px;
+}
+
+.background_over_game {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
 	background-color: black;
+	transition: opacity 0.5s ease;
+	pointer-events: none;
+}
+.background_over_game:not(.active_bg) {
+	opacity: 0;
+}
+
+.page {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.page:not(.active_view) {
+	display: none;
+}
+
+.box {
+	border-radius: 3px;
+	border: 1px solid #404040;
+	background-color: #303030;
+	margin: 20px;
+	box-sizing: border-box;
+	padding: 20px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+.box.entry_box {
+	flex-direction: row;
+}
+
+.room_list {
+	min-width: 200px;
+	min-height: 200px;
+	max-width: 650px;
+	max-height: 540px;
+	overflow: auto;
+}
+
+button.room_option_button {
+
 }
