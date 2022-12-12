@@ -157,7 +157,7 @@ let init = () => {
 	setupNetworkConnection();
 
 	nicknameInput = document.getElementById("nickname");
-	var savedNickname = localStorage.getItem("alchemist__nickname");
+	let savedNickname = localStorage.getItem("alchemist__nickname");
 	if (savedNickname !== null) {
 		nickname = savedNickname;
 		nicknameInput.value = nickname;
@@ -170,11 +170,13 @@ let init = () => {
 	makeRoomButton = document.getElementById("make_room");
 	makeRoomButton.onclick = (e) => {
 		goToView("waiting");
+		sendData("makeRoom", `${nickname}'s room`);
 	}
 
 	leaveRoomButton = document.getElementById("leave_room");
 	leaveRoomButton.onclick = (e) => {
 		goToView("entry");
+
 	}
 
 	roomListElement = document.getElementById("room_list");
@@ -242,7 +244,7 @@ let init = () => {
 
 	connectGameObjectToSceneMesh(newPlayerObject, newPlayerMesh);
 
-	for (var i = 0; i < 6; i++) {
+	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance("table", i * 2 - 3, i - 2);
 		let newTableMesh = createApplianceMesh("table");
 		newTableMesh.position.x = newTable.xPosition;
@@ -273,8 +275,8 @@ let init = () => {
 
 let currentView = "entry";
 let goToView = (view) => {
-	var prevViewElement = document.getElementsByClassName("active_view").item(0);
-	var nextViewElement = document.querySelector(`[view="${view}"]`)
+	let prevViewElement = document.getElementsByClassName("active_view").item(0);
+	let nextViewElement = document.querySelector(`[view="${view}"]`)
 	prevViewElement.classList.remove("active_view");
 	nextViewElement.classList.add("active_view");
 	currentView = view;
@@ -284,15 +286,20 @@ let roomJoinButtonFunction = (e) => {
 	goToView("waiting");
 }
 
-let makeRoomOption = (roomName, roomid) => {
-	var newOption = document.createElement("button");
+let makeRoomOption = (roomName, roomID) => {
+	let newOption = document.createElement("button");
 	newOption.classList.add("room_option_button");
 	newOption.onclick = roomJoinButtonFunction;
-	// <button class="room_option_button" roomid="1" roomName="Example's room">Join Example's room</button>
+	// <button class="room_option_button" roomID="1" roomName="Example's room">Join Example's room</button>
 	newOption.setAttribute("roomName", roomName);
-	newOption.setAttribute("roomid", roomid);
+	newOption.setAttribute("roomID", roomID);
 	roomListElement.append(newOption);
 	newOption.textContent = `Join ${roomName}`;
+}
+
+let removeRoomOption = (roomID) => {
+	let roomToRemove = document.querySelector(`.room_option_button[roomID="${roomID}"]`);
+	roomToRemove.remove();
 }
 
 let lastTime;
@@ -376,7 +383,7 @@ let gameLogic = () => {
 		let oppositeRotation = false;
 		if (anyDirectionPressed) {
 			if (playerObject.rotation !== targetRotation) {
-				var targetRotationDifference = Math.abs(playerObject.rotation - targetRotation);
+				let targetRotationDifference = Math.abs(playerObject.rotation - targetRotation);
 				// Apply spin to player's rotation toward targetRotation
 				if (playerObject.rotation > targetRotation) {
 					rotationChange -= 0.23;
@@ -582,11 +589,12 @@ let meshToScreenCoordinates = (mesh) => {
 	//not using window.devicePixelRatio for now
 	return new THREE.Vector2(Math.round((0.5 + vector.x / 2) * window.innerWidth), Math.round((0.5 - vector.y / 2) * window.innerHeight));
 }
-var socket = undefined;
+let socket = undefined;
+let connected = false;
 let setupNetworkConnection = () => {
 	try {
-		var wsProtocol;
-		var socketURL;
+		let wsProtocol;
+		let socketURL;
 		if (location.href.indexOf("kramff.com") !== -1) {
 			wsProtocol = "wss://";
 			socketURL = wsProtocol + "bine.nfshost.com";
@@ -598,9 +606,39 @@ let setupNetworkConnection = () => {
 		socket = new WebSocket(socketURL);
 		socket.onopen = (data) => {
 			console.log("connected to server!");
+			connected = true;
 		}
-		socket.onmessage = (event) => {
-			console.log("got message: " + JSON.parse(event.data));
+		socket.onmessage = (message) => {
+			// console.log("got message: " + message);
+			let messageParse = JSON.parse(message);
+			let messageType = messageParse.type;
+			let messageData = messageParse.data;
+			// new available room/rooms
+			if (messageType === "roomInfo") {
+				if (Array.isArray(messageData)) {
+					messageData.forEach(roomData => {makeRoomOption(roomData.roomName, roomData.roomID)})
+				}
+				else {
+					makeRoomOption(roomData.roomName, roomData.roomID);
+				}
+			}
+			// room removed
+			else if (messageType === "roomRemoved") {
+				removeRoomOption(roomData);
+			}
+			// room information (other players joining / leaving the waiting room or switching teams)
+			else if (messageType === "roomStatusPlayerJoin") {
+				
+			}
+			else if (messageType === "roomStatusPlayerLeave") {
+
+			}
+			else if (messageType === "roomStatusSwitchTeam") {
+				
+			}
+			// game starting
+			// other player input
+			// other player quitting
 		}
 	}
 	catch (error) {
@@ -608,3 +646,13 @@ let setupNetworkConnection = () => {
 		console.error(error);
 	}
 }
+let sendData = (type, data) => {
+	if (!connected) {
+		return;
+	}
+	socket.send(JSON.stringify({type: type, data: data}));
+}
+
+// join a room
+// start game
+// gameplay inputs
