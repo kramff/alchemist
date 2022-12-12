@@ -15,9 +15,21 @@ wss.on("connection", (ws) => {
 			BroadcastNewRoom(createdRoom);
 		}
 		// join a room
+		else if (messageType === "joinRoom") {
+
+		}
 		// switch team
+		else if (messageType === "switchTeam") {
+
+		}
 		// start game
+		else if (messageType === "startGame") {
+
+		}
 		// gameplay inputs
+		else if (messageType === "playerInput") {
+
+		}
 	});
 	ws.on("close", () => {
 		console.log("disconnected");

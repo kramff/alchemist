@@ -628,17 +628,26 @@ let setupNetworkConnection = () => {
 			}
 			// room information (other players joining / leaving the waiting room or switching teams)
 			else if (messageType === "roomStatusPlayerJoin") {
-				
+
 			}
 			else if (messageType === "roomStatusPlayerLeave") {
 
 			}
 			else if (messageType === "roomStatusSwitchTeam") {
-				
+
 			}
 			// game starting
+			else if (messageType === "gameStarting") {
+
+			}
 			// other player input
+			else if (messageType === "playerInput") {
+
+			}
 			// other player quitting
+			else if (messageType === "playerQuit") {
+				
+			}
 		}
 	}
 	catch (error) {
