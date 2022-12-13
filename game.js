@@ -181,7 +181,7 @@ let init = () => {
 
 	roomListElement = document.getElementById("room_list");
 
-	makeRoomOption("Example's room", 1);
+	// makeRoomOption("Example's room", 1);
 
 	//nicknameInput.oninput
 	scene = new THREE.Scene();
@@ -610,7 +610,7 @@ let setupNetworkConnection = () => {
 		}
 		socket.onmessage = (message) => {
 			// console.log("got message: " + message);
-			let messageParse = JSON.parse(message);
+			let messageParse = JSON.parse(message.data);
 			let messageType = messageParse.type;
 			let messageData = messageParse.data;
 			// new available room/rooms
@@ -619,7 +619,7 @@ let setupNetworkConnection = () => {
 					messageData.forEach(roomData => {makeRoomOption(roomData.roomName, roomData.roomID)})
 				}
 				else {
-					makeRoomOption(roomData.roomName, roomData.roomID);
+					makeRoomOption(messageData.roomName, messageData.roomID);
 				}
 			}
 			// room removed

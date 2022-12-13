@@ -16,7 +16,8 @@ wss.on("connection", (ws) => {
 		}
 		// join a room
 		else if (messageType === "joinRoom") {
-
+			let roomToJoin = roomList.find(room => room.id === messageData);
+			roomToJoin.AddPlayer(player);
 		}
 		// switch team
 		else if (messageType === "switchTeam") {
@@ -43,26 +44,28 @@ wss.on("connection", (ws) => {
 	});
 });
 
-let sendData(ws, type, data) {
+let sendData = (ws, type, data) => {
 	if (ws.readyState !== WebSocket.OPEN) {
 		return;
 	}
-	ws.send(JSON.stringify())
+	var sendObj = {type: type, data: data};
+	ws.send(JSON.stringify(sendObj));
 }
 
 let playerIDCounter = 0;
 let playerList = [];
 function Player (ws) {
 	this.id = playerIDCounter;
+	playerIDCounter ++;
 	this.ws = ws;
 	this.name = "nickname";
-	playerIDCounter ++;
 	playerList.push(this);
+	this.room = undefined;
 }
 
 let BroadcastNewRoom = (room) => {
 	var roomData = {roomName: room.name, roomID: room.id};
-	playerList.forEach(player => sendData(player.ws, "roomInfo", roomData)
+	playerList.forEach(player => sendData(player.ws, "roomInfo", roomData));
 }
 let BroadcastRemoveRoom = function (room) {
 	playerList.forEach(player => sendData(player.ws, "roomRemoved", room.id));
@@ -78,7 +81,7 @@ function Room (roomName) {
 }
 Room.prototype.AddPlayer = function (player) {
 	let playerData = {playerName: player.name, playerID: player.id};
-	this.connectedPlayers.forEach(player => sendData(player.ws, "roomStatusPlayerJoin", ))
+	this.connectedPlayers.forEach(player => sendData(player.ws, "roomStatusPlayerJoin", playerData));
 	this.connectedPlayers.push(player);
 }
 Room.prototype.RemovePlayer = function (player) {
