@@ -71,6 +71,9 @@ let createPlayer = () => {
 		anchorPressed: false,
 		releasedGrab: true,
 		connectedMesh: undefined,
+		id: undefined,
+		name: undefined,
+		team: undefined,
 	};
 	playerList.push(newPlayer);
 	return newPlayer;
@@ -147,18 +150,33 @@ let oDown = false;
 let pDown = false;
 let spaceDown = false;
 
+let backgroundOverGame;
+let roomListElement;
+let teamBox1;
+let teamBox2;
 let nickname = "";
 let nicknameInput;
 let makeRoomButton;
 let leaveRoomButton;
-let roomListElement;
+let joinTeam1Button;
+let joinTeam2Button;
+let startGameButton;
+
+let gameStartPlayerInfo;
+let otherPlayers = [];
 
 let init = () => {
+
+	backgroundOverGame = document.getElementsByClassName("background_over_game").item(0);
+	roomListElement = document.getElementById("room_list");
+	teamBox1 = document.getElementById("team_1");
+	teamBox2 = document.getElementById("team_2");
+
 	setupNetworkConnection();
 
 	nicknameInput = document.getElementById("nickname");
 	let savedNickname = localStorage.getItem("alchemist__nickname");
-	if (savedNickname !== null) {
+	if (!!savedNickname) {
 		nickname = savedNickname;
 		nicknameInput.value = nickname;
 	}
@@ -170,18 +188,30 @@ let init = () => {
 	makeRoomButton = document.getElementById("make_room");
 	makeRoomButton.onclick = (e) => {
 		goToView("waiting");
-		sendData("makeRoom", `${nickname}'s room`);
+		sendData("makeRoom", {roomName: `${nickname}'s room`, playerName: nickname});
 	}
 
 	leaveRoomButton = document.getElementById("leave_room");
 	leaveRoomButton.onclick = (e) => {
 		goToView("entry");
-
+		sendData("leaveRoom", 0);
+		document.querySelectorAll(".player_entry").forEach(playerEntry => playerEntry.remove());
 	}
 
-	roomListElement = document.getElementById("room_list");
+	joinTeam1Button = document.getElementById("join_team_1");
+	joinTeam1Button.onclick = (e) => {
+		sendData("switchTeam", 1);
+	}
 
-	// makeRoomOption("Example's room", 1);
+	joinTeam2Button = document.getElementById("join_team_2");
+	joinTeam2Button.onclick = (e) => {
+		sendData("switchTeam", 2);
+	}
+
+	startGameButton = document.getElementById("start_game");
+	startGameButton.onclick = (e) => {
+		sendData("startGame", 0);
+	}
 
 	//nicknameInput.oninput
 	scene = new THREE.Scene();
@@ -283,7 +313,9 @@ let goToView = (view) => {
 }
 
 let roomJoinButtonFunction = (e) => {
+	let roomID = e.target.getAttribute("roomID");
 	goToView("waiting");
+	sendData("joinRoom", {roomID: roomID, playerName: nickname});
 }
 
 let makeRoomOption = (roomName, roomID) => {
@@ -299,7 +331,37 @@ let makeRoomOption = (roomName, roomID) => {
 
 let removeRoomOption = (roomID) => {
 	let roomToRemove = document.querySelector(`.room_option_button[roomID="${roomID}"]`);
+	if (!roomToRemove) {
+		console.log("no room option to remove with that id");
+		return;
+	}
 	roomToRemove.remove();
+}
+
+let makePlayerEntry = (playerName, playerID, playerTeam) => {
+	let newEntry = document.createElement("div");
+	newEntry.classList.add("player_entry");
+	newEntry.setAttribute("playerID", playerID);
+	newEntry.textContent = playerName;
+	let teamBox = teamBox1;
+	if (!!playerTeam && playerTeam === 2) {
+		teamBox = teamBox2;
+	}
+	teamBox.append(newEntry);
+}
+
+let removePlayerEntry = (playerID) => {
+	let playerEntry = document.querySelector(`.player_entry[playerID="${playerID}"]`);
+	if (!playerEntry) {
+		return;
+	}
+	playerEntry.remove();
+}
+
+let switchPlayerTeam = (playerID, team) => {
+	let playerEntry = document.querySelector(`.player_entry[playerID="${playerID}"]`);
+	let newTeamBox = (team === 1 ? teamBox1 : teamBox2);
+	newTeamBox.append(playerEntry);
 }
 
 let lastTime;
@@ -311,6 +373,17 @@ let gameLoop = () => {
 	timeAccumulator += deltaTime;
 	if (timeAccumulator > frameTime) {
 		gameLogic();
+		if (inputChanged) {
+			sendData("playerInput", {
+				upPressed: wDown,
+				rightPressed: dDown,
+				downPressed: sDown,
+				leftPressed: aDown,
+				grabPressed: pDown,
+				usePressed: oDown,
+				anchorPressed: spaceDown,
+			});
+		}
 	}
 	renderFrame();
 	requestAnimationFrame(gameLoop);
@@ -360,16 +433,16 @@ let gameLogic = () => {
 
 		let xSpeedChange = 0;
 		let ySpeedChange = 0;
-		if (wDown) {
+		if (playerObject.upPressed) {
 			ySpeedChange += 0.02;
 		}
-		if (aDown) {
+		if (playerObject.leftPressed) {
 			xSpeedChange -= 0.02;
 		}
-		if (sDown) {
+		if (playerObject.downPressed) {
 			ySpeedChange -= 0.02;
 		}
-		if (dDown) {
+		if (playerObject.rightPressed) {
 			xSpeedChange += 0.02;
 		}
 		// Diagonal movement
@@ -430,7 +503,7 @@ let gameLogic = () => {
 			ySpeedChange *= 0.25;
 		}
 		// Don't move while holding space
-		if (!spaceDown) {
+		if (!playerObject.anchorPressed) {
 			playerObject.xSpeed += xSpeedChange;
 			playerObject.ySpeed += ySpeedChange;
 		}
@@ -439,7 +512,7 @@ let gameLogic = () => {
 		playerObject.xSpeed *= 0.8;
 		playerObject.ySpeed *= 0.8;
 		// Apply more friction if stopping
-		if (!anyDirectionPressed || spaceDown) {
+		if (!anyDirectionPressed || playerObject.anchorPressed) {
 			playerObject.xSpeed *= 0.9;
 			playerObject.ySpeed *= 0.9;
 		}
@@ -448,7 +521,7 @@ let gameLogic = () => {
 
 		// World Interaction
 
-		if (pDown) {
+		if (playerObject.grabPressed) {
 			if (playerObject.releasedGrab) {
 				// Grab input: try to grab or put down an item
 				applianceList.forEach((applianceObject) => {
@@ -483,7 +556,7 @@ let gameLogic = () => {
 		else {
 			playerObject.releasedGrab = true;
 		}
-		if (oDown) {
+		if (playerObject.usePressed) {
 			// Interact button: can make progress on item
 			applianceList.forEach((applianceObject) => {
 				if (applianceObject.holdingItem) {
@@ -512,7 +585,7 @@ let gameLogic = () => {
 	});
 }
 let transferItem = (oldHolder, newHolder, item) => {
-	if (oldHolder !== undefined) {
+	if (!!oldHolder) {
 		oldHolder.heldItem = undefined;
 		oldHolder.holdingItem = false;
 	}
@@ -529,52 +602,61 @@ let transferItem = (oldHolder, newHolder, item) => {
 	item.holder = newHolder;
 }
 
+let inputChanged = false;
 let keyDownFunction = (event) => {
 	if (event.keyCode === 87) {
 		wDown = true;
 	}
-	if (event.keyCode === 65) {
+	else if (event.keyCode === 65) {
 		aDown = true;
 	}
-	if (event.keyCode === 83) {
+	else if (event.keyCode === 83) {
 		sDown = true;
 	}
-	if (event.keyCode === 68) {
+	else if (event.keyCode === 68) {
 		dDown = true;
 	}
-	if (event.keyCode === 79) {
+	else if (event.keyCode === 79) {
 		oDown = true;
 	}
-	if (event.keyCode === 80) {
+	else if (event.keyCode === 80) {
 		pDown = true;
 	}
-	if (event.keyCode === 32) {
+	else if (event.keyCode === 32) {
 		spaceDown = true;
 	}
+	else {
+		return;
+	}
+	inputChanged = true;
 }
 
 let keyUpFunction = (event) => {
 	if (event.keyCode === 87) {
 		wDown = false;
 	}
-	if (event.keyCode === 65) {
+	else if (event.keyCode === 65) {
 		aDown = false;
 	}
-	if (event.keyCode === 83) {
+	else if (event.keyCode === 83) {
 		sDown = false;
 	}
-	if (event.keyCode === 68) {
+	else if (event.keyCode === 68) {
 		dDown = false;
 	}
-	if (event.keyCode === 79) {
+	else if (event.keyCode === 79) {
 		oDown = false;
 	}
-	if (event.keyCode === 80) {
+	else if (event.keyCode === 80) {
 		pDown = false;
 	}
-	if (event.keyCode === 32) {
+	else if (event.keyCode === 32) {
 		spaceDown = false;
 	}
+	else {
+		return;
+	}
+	inputChanged = true;
 }
 let resizeFunction = (event) => {
 	renderer.setSize(window.innerWidth, window.innerHeight);
@@ -609,8 +691,8 @@ let setupNetworkConnection = () => {
 			connected = true;
 		}
 		socket.onmessage = (message) => {
-			// console.log("got message: " + message);
 			let messageParse = JSON.parse(message.data);
+			console.log("got message: " + message.data);
 			let messageType = messageParse.type;
 			let messageData = messageParse.data;
 			// new available room/rooms
@@ -624,25 +706,45 @@ let setupNetworkConnection = () => {
 			}
 			// room removed
 			else if (messageType === "roomRemoved") {
-				removeRoomOption(roomData);
+				removeRoomOption(messageData);
 			}
 			// room information (other players joining / leaving the waiting room or switching teams)
 			else if (messageType === "roomStatusPlayerJoin") {
-
+				makePlayerEntry(messageData.playerName, messageData.playerID, messageData.playerTeam || 1);
 			}
 			else if (messageType === "roomStatusPlayerLeave") {
-
+				removePlayerEntry(messageData);
 			}
 			else if (messageType === "roomStatusSwitchTeam") {
-
+				switchPlayerTeam(messageData.playerID, messageData.team);
 			}
 			// game starting
 			else if (messageType === "gameStarting") {
+				goToView("game");
+				backgroundOverGame.classList.remove("active_bg");
+				gameStartPlayerInfo = messageData;
+				gameStartPlayerInfo.forEach(otherPlayer => {
+					let newOtherPlayerObject = createPlayer();
+					newOtherPlayerObject.name = otherPlayer.playerName;
+					newOtherPlayerObject.id = otherPlayer.playerID;
+					newOtherPlayerObject.team = otherPlayer.playerTeam;
+					let newOtherPlayerMesh = createPlayerMesh();
+					connectGameObjectToSceneMesh(newOtherPlayerObject, newOtherPlayerMesh);
 
+					newOtherPlayerObject.xPosition += Math.random();
+					newOtherPlayerObject.yPosition += Math.random();
+				});
 			}
 			// other player input
 			else if (messageType === "playerInput") {
-
+				var matchingPlayer = playerList.find(player => player.id === messageData.id);
+				matchingPlayer.upPressed = messageData.upPressed;
+				matchingPlayer.rightPressed = messageData.rightPressed;
+				matchingPlayer.downPressed = messageData.downPressed;
+				matchingPlayer.leftPressed = messageData.leftPressed;
+				matchingPlayer.grabPressed = messageData.grabPressed;
+				matchingPlayer.usePressed = messageData.usePressed;
+				matchingPlayer.anchorPressed = messageData.anchorPressed;
 			}
 			// other player quitting
 			else if (messageType === "playerQuit") {
@@ -659,7 +761,9 @@ let sendData = (type, data) => {
 	if (!connected) {
 		return;
 	}
-	socket.send(JSON.stringify({type: type, data: data}));
+	let sendObjStr = JSON.stringify({type: type, data: data});
+	socket.send(sendObjStr);
+	console.log("send: " + sendObjStr);
 }
 
 // join a room
