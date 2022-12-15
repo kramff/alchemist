@@ -6,7 +6,7 @@ wss.on("connection", (ws) => {
 	let currentRoom;
 	roomList.forEach(room => sendData(player.ws, "roomInfo", {roomName: room.name, roomID: room.id}))
 	ws.on("message", (message) => {
-		console.log("got message: " + message);
+		// console.log("got message: " + message);
 		let messageParse = JSON.parse(message);
 		let messageType = messageParse.type;
 		let messageData = messageParse.data;
@@ -85,7 +85,7 @@ let sendData = (ws, type, data) => {
 	}
 	let sendObjStr = JSON.stringify({type: type, data: data});
 	ws.send(sendObjStr);
-	console.log("send: " + sendObjStr);
+	// console.log("send: " + sendObjStr);
 }
 
 let playerIDCounter = 0;

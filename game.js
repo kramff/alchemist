@@ -32,6 +32,18 @@ let smallRectGeometry;
 let progressMaterial;
 let progressMesh;
 
+let swordGeometry;
+let swordMaterial;
+
+let gunGeometry;
+let gunMaterial
+
+let bulletGeometry;
+let bulletMaterial;
+
+let ballGeometry;
+let ballMaterial;
+
 let sceneLight;
 let sceneLight2;
 
@@ -134,6 +146,18 @@ let createItemMesh = (itemType) => {
 	if (itemType === "orb") {
 		newItemMesh = new THREE.Mesh(sphereGeometry, itemMaterial);
 	}
+	else if (itemType === "sword") {
+		newItemMesh = new THREE.Mesh(swordGeometry, swordMaterial);
+	}
+	else if (itemType === "gun") {
+		newItemMesh = new THREE.Mesh(gunGeometry, gunMaterial);
+	}
+	if (itemType === "bullet") {
+		newItemMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
+	}
+	else if (itemType === "ball") {
+		newItemMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+	}
 	else {
 		console.log("item type missing: " + itemType);
 	}
@@ -226,6 +250,11 @@ let init = () => {
 	planeGeometry = new THREE.PlaneGeometry(10, 10);
 	sphereGeometry = new THREE.SphereGeometry(0.25, 6, 6);
 	smallRectGeometry = new THREE.PlaneGeometry(0.9, 0.3);
+	// More specific geometries
+	swordGeometry = new THREE.ConeGeometry(0.15, 1, 3, 1);
+	gunGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.45);
+	bulletGeometry = new THREE.SphereGeometry(0.17, 5, 4);
+	ballGeometry = new THREE.DodecahedronGeometry(0.35, 0);
 
 	// Materials
 	playerMaterial = new THREE.MeshToonMaterial({color: 0x22ff22});
@@ -235,6 +264,11 @@ let init = () => {
 	itemMaterial = new THREE.MeshToonMaterial({color: 0x2266dd});
 	itemMaterial2 = new THREE.MeshToonMaterial({color: 0xdd2266});
 	progressMaterial = new THREE.MeshToonMaterial({color: 0x33ffbb});
+	// More materials
+	swordMaterial = new THREE.MeshToonMaterial({color: 0x4f7b22});
+	gunMaterial = new THREE.MeshToonMaterial({color: 0x4f7b22});
+	bulletMaterial = new THREE.MeshToonMaterial({color: 0x4f7b22});
+	ballMaterial = new THREE.MeshToonMaterial({color: 0x4f7b22});
 
 	// Single use meshes
 	floorMesh = new THREE.Mesh(planeGeometry, floorMaterial);
@@ -269,10 +303,11 @@ let init = () => {
 	// progressMesh.scale.x = 0;
 
 
-	let newPlayerObject = createPlayer();
-	let newPlayerMesh = createPlayerMesh();
+	// let newPlayerObject = createPlayer();
+	// let newPlayerMesh = createPlayerMesh();
 
-	connectGameObjectToSceneMesh(newPlayerObject, newPlayerMesh);
+	// connectGameObjectToSceneMesh(newPlayerObject, newPlayerMesh);
+	var listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
 
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance("table", i * 2 - 3, i - 2);
@@ -280,12 +315,16 @@ let init = () => {
 		newTableMesh.position.x = newTable.xPosition;
 		newTableMesh.position.y = newTable.yPosition;
 		connectGameObjectToSceneMesh(newTable, newTableMesh);
-		if (i % 2 === 0) {
-			let newItem = createItem("orb");
-			let newItemMesh = createItemMesh("orb");
-			connectGameObjectToSceneMesh(newItem, newItemMesh);
-			transferItem(undefined, newTable, newItem);
-		}
+		// if (i % 2 === 0) {
+		// 	let newItem = createItem("orb");
+		// 	let newItemMesh = createItemMesh("orb");
+		// 	connectGameObjectToSceneMesh(newItem, newItemMesh);
+		// 	transferItem(undefined, newTable, newItem);
+		// }
+		let newItem = createItem(listOfItems[i]);
+		let newItemMesh = createItemMesh(listOfItems[i]);
+		connectGameObjectToSceneMesh(newItem, newItemMesh);
+		transferItem(undefined, newTable, newItem);
 	}
 
 	// itemObject = {
@@ -373,7 +412,7 @@ let gameLoop = () => {
 	timeAccumulator += deltaTime;
 	if (timeAccumulator > frameTime) {
 		gameLogic();
-		if (inputChanged) {
+		if (inputChanged && currentView === "game") {
 			sendData("playerInput", {
 				upPressed: wDown,
 				rightPressed: dDown,
@@ -384,6 +423,7 @@ let gameLoop = () => {
 				anchorPressed: spaceDown,
 			});
 		}
+		inputChanged = false;
 	}
 	renderFrame();
 	requestAnimationFrame(gameLoop);
@@ -604,25 +644,25 @@ let transferItem = (oldHolder, newHolder, item) => {
 
 let inputChanged = false;
 let keyDownFunction = (event) => {
-	if (event.keyCode === 87) {
+	if (event.keyCode === 87 && !wDown) {
 		wDown = true;
 	}
-	else if (event.keyCode === 65) {
+	else if (event.keyCode === 65 && !aDown) {
 		aDown = true;
 	}
-	else if (event.keyCode === 83) {
+	else if (event.keyCode === 83 && !sDown) {
 		sDown = true;
 	}
-	else if (event.keyCode === 68) {
+	else if (event.keyCode === 68 && !dDown) {
 		dDown = true;
 	}
-	else if (event.keyCode === 79) {
+	else if (event.keyCode === 79 && !oDown) {
 		oDown = true;
 	}
-	else if (event.keyCode === 80) {
+	else if (event.keyCode === 80 && !pDown) {
 		pDown = true;
 	}
-	else if (event.keyCode === 32) {
+	else if (event.keyCode === 32 && !spaceDown) {
 		spaceDown = true;
 	}
 	else {
@@ -692,7 +732,7 @@ let setupNetworkConnection = () => {
 		}
 		socket.onmessage = (message) => {
 			let messageParse = JSON.parse(message.data);
-			console.log("got message: " + message.data);
+			// console.log("got message: " + message.data);
 			let messageType = messageParse.type;
 			let messageData = messageParse.data;
 			// new available room/rooms
@@ -731,8 +771,8 @@ let setupNetworkConnection = () => {
 					let newOtherPlayerMesh = createPlayerMesh();
 					connectGameObjectToSceneMesh(newOtherPlayerObject, newOtherPlayerMesh);
 
-					newOtherPlayerObject.xPosition += Math.random();
-					newOtherPlayerObject.yPosition += Math.random();
+					// newOtherPlayerObject.xPosition += Math.random();
+					// newOtherPlayerObject.yPosition += Math.random();
 				});
 			}
 			// other player input
@@ -763,7 +803,7 @@ let sendData = (type, data) => {
 	}
 	let sendObjStr = JSON.stringify({type: type, data: data});
 	socket.send(sendObjStr);
-	console.log("send: " + sendObjStr);
+	// console.log("send: " + sendObjStr);
 }
 
 // join a room
