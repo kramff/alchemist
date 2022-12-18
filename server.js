@@ -67,12 +67,13 @@ wss.on("connection", (ws) => {
 			}
 			//console.log("player sent inputs");
 			messageData.id = player.id;
-			currentRoom.connectedPlayers.forEach(player => sendData(player.ws, "playerInput", messageData));
+			currentRoom.connectedPlayers.forEach(otherPlayer => sendData(otherPlayer.ws, "playerInput", messageData));
 		}
 	});
 	ws.on("close", () => {
 		console.log("disconnected");
 		if (currentRoom) {
+			currentRoom.connectedPlayers.forEach(otherPlayer => sendData(otherPlayer.ws, "playerQuit", player.id));
 			currentRoom.RemovePlayer(player);
 		}
 		playerList.splice(playerList.indexOf(player), 1);

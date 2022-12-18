@@ -137,7 +137,13 @@ let createItem = (itemType) => {
 		heldByPlayer: false,
 		heldByAppliance: false,
 		connectedMesh: undefined,
+		fixedRotation: true,
+		initialRotation: 0,
 	};
+	if (itemType === "sword" || itemType === "gun" || itemType === "ball") {
+		newItem.fixedRotation = false;
+		newItem.initialRotation = - Math.PI / 2;
+	}
 	itemList.push(newItem);
 	return newItem;
 }
@@ -152,7 +158,7 @@ let createItemMesh = (itemType) => {
 	else if (itemType === "gun") {
 		newItemMesh = new THREE.Mesh(gunGeometry, gunMaterial);
 	}
-	if (itemType === "bullet") {
+	else if (itemType === "bullet") {
 		newItemMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
 	}
 	else if (itemType === "ball") {
@@ -252,7 +258,7 @@ let init = () => {
 	smallRectGeometry = new THREE.PlaneGeometry(0.9, 0.3);
 	// More specific geometries
 	swordGeometry = new THREE.ConeGeometry(0.15, 1, 3, 1);
-	gunGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.45);
+	gunGeometry = new THREE.BoxGeometry(0.2, 0.45, 0.2);
 	bulletGeometry = new THREE.SphereGeometry(0.17, 5, 4);
 	ballGeometry = new THREE.DodecahedronGeometry(0.35, 0);
 
@@ -265,10 +271,10 @@ let init = () => {
 	itemMaterial2 = new THREE.MeshToonMaterial({color: 0xdd2266});
 	progressMaterial = new THREE.MeshToonMaterial({color: 0x33ffbb});
 	// More materials
-	swordMaterial = new THREE.MeshToonMaterial({color: 0x4f7b22});
-	gunMaterial = new THREE.MeshToonMaterial({color: 0x4f7b22});
-	bulletMaterial = new THREE.MeshToonMaterial({color: 0x4f7b22});
-	ballMaterial = new THREE.MeshToonMaterial({color: 0x4f7b22});
+	swordMaterial = new THREE.MeshToonMaterial({color: 0x90909a});
+	gunMaterial = new THREE.MeshToonMaterial({color: 0x6f7064});
+	bulletMaterial = new THREE.MeshToonMaterial({color: 0xc6a039});
+	ballMaterial = new THREE.MeshToonMaterial({color: 0xdf202f});
 
 	// Single use meshes
 	floorMesh = new THREE.Mesh(planeGeometry, floorMaterial);
@@ -276,10 +282,10 @@ let init = () => {
 	scene.add(floorMesh);
 
 	// Lights
-	sceneLight = new THREE.PointLight(0xff9999, 0.8, 14);
+	sceneLight = new THREE.PointLight(0xeeaaaa, 0.8, 14);
 	sceneLight.position.set(4, 4, 4);
 	scene.add(sceneLight);
-	sceneLight2 = new THREE.AmbientLight(0xffdddd, 0.4);
+	sceneLight2 = new THREE.AmbientLight(0xcccccc, 0.4);
 	scene.add(sceneLight2);
 
 
@@ -325,6 +331,13 @@ let init = () => {
 		let newItemMesh = createItemMesh(listOfItems[i]);
 		connectGameObjectToSceneMesh(newItem, newItemMesh);
 		transferItem(undefined, newTable, newItem);
+	}
+	for (let i = 0; i < 4; i++) {
+		let newTable = createAppliance("table", i * 3 - 5, -4);
+		let newTableMesh = createApplianceMesh("table");
+		newTableMesh.position.x = newTable.xPosition;
+		newTableMesh.position.y = newTable.yPosition;
+		connectGameObjectToSceneMesh(newTable, newTableMesh);
 	}
 
 	// itemObject = {
@@ -451,11 +464,16 @@ let renderFrame = () => {
 		// Held by player or appliance
 		if (itemObject.heldByPlayer) {
 			itemMesh.position.set(1, 0, 0.5);
-			itemMesh.rotation.z = itemObject.holder.rotation * -1;
+			if (itemObject.fixedRotation) {
+				itemMesh.rotation.z = itemObject.holder.rotation * -1;
+			}
+			else {
+				itemMesh.rotation.z = itemObject.initialRotation;
+			}
 		}
 		else if (itemObject.heldByAppliance) {
 			itemMesh.position.set(0, 0, 1);
-			itemMesh.rotation.z = 0;
+			itemMesh.rotation.z = itemObject.initialRotation;
 		}
 		// Change material when progress is made
 		if (itemObject.chopped) {
