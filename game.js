@@ -422,9 +422,9 @@ let frameTime = 1000/60;
 let gameLoop = () => {
 	let newTime = Date.now();
 	let deltaTime = newTime - lastTime
+	lastTime = newTime
 	timeAccumulator += deltaTime;
 	if (timeAccumulator > frameTime) {
-		gameLogic();
 		if (inputChanged && currentView === "game") {
 			sendData("playerInput", {
 				upPressed: wDown,
@@ -437,6 +437,15 @@ let gameLoop = () => {
 			});
 		}
 		inputChanged = false;
+		let limit = 10;
+		while (timeAccumulator > frameTime && limit > 0) {
+			timeAccumulator -= frameTime;
+			limit -= 1;
+			gameLogic();
+		}
+		if (limit === 0) {
+			timeAccumulator = 0;
+		}
 	}
 	renderFrame();
 	requestAnimationFrame(gameLoop);
