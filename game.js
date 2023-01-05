@@ -9,6 +9,9 @@ let renderer;
 // Specific render stuff
 let cubeGeometry;
 let playerMaterial;
+let playerTeam1Material;
+let playerTeam2Material;
+
 // let playerMesh;
 
 let planeGeometry;
@@ -264,6 +267,8 @@ let init = () => {
 
 	// Materials
 	playerMaterial = new THREE.MeshToonMaterial({color: 0x22ff22});
+	playerTeam1Material = new THREE.MeshToonMaterial({color: 0xff4444});
+	playerTeam2Material = new THREE.MeshToonMaterial({color: 0x4444ff});
 	floorMaterial = new THREE.MeshToonMaterial({color: 0x504030});
 	tableMaterial = new THREE.MeshToonMaterial({color: 0xccaa22});
 	tableMaterialHighlight = new THREE.MeshToonMaterial({color: 0xddbb33});
@@ -797,6 +802,12 @@ let setupNetworkConnection = () => {
 					newOtherPlayerObject.team = otherPlayer.playerTeam;
 					let newOtherPlayerMesh = createPlayerMesh();
 					connectGameObjectToSceneMesh(newOtherPlayerObject, newOtherPlayerMesh);
+					if (newOtherPlayerObject.team === 1) {
+						newOtherPlayerMesh.material = playerTeam1Material;
+					}
+					else if (newOtherPlayerObject.team === 2) {
+						newOtherPlayerMesh.material = playerTeam2Material;
+					}
 
 					// newOtherPlayerObject.xPosition += Math.random();
 					// newOtherPlayerObject.yPosition += Math.random();
