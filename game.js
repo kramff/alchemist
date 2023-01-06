@@ -85,6 +85,7 @@ let createPlayer = () => {
 		usePressed: false,
 		anchorPressed: false,
 		releasedGrab: true,
+		releasedUse: true,
 		connectedMesh: undefined,
 		id: undefined,
 		name: undefined,
@@ -142,10 +143,12 @@ let createItem = (itemType) => {
 		connectedMesh: undefined,
 		fixedRotation: true,
 		initialRotation: 0,
+		hasAbility: false,
 	};
 	if (itemType === "sword" || itemType === "gun" || itemType === "ball") {
 		newItem.fixedRotation = false;
 		newItem.initialRotation = - Math.PI / 2;
+		newItem.hasAbility = true;
 	}
 	itemList.push(newItem);
 	return newItem;
@@ -198,12 +201,17 @@ let startGameButton;
 let gameStartPlayerInfo;
 let otherPlayers = [];
 
+let gameOverlay;
+let overlayList = [];
+
 let init = () => {
 
 	backgroundOverGame = document.getElementsByClassName("background_over_game").item(0);
 	roomListElement = document.getElementById("room_list");
 	teamBox1 = document.getElementById("team_1");
 	teamBox2 = document.getElementById("team_2");
+
+	gameOverlay = document.getElementById("game_overlay");
 
 	setupNetworkConnection();
 
@@ -267,8 +275,8 @@ let init = () => {
 
 	// Materials
 	playerMaterial = new THREE.MeshToonMaterial({color: 0x22ff22});
-	playerTeam1Material = new THREE.MeshToonMaterial({color: 0xff4444});
-	playerTeam2Material = new THREE.MeshToonMaterial({color: 0x4444ff});
+	playerTeam1Material = new THREE.MeshToonMaterial({color: 0xff7777});
+	playerTeam2Material = new THREE.MeshToonMaterial({color: 0x77ff77});
 	floorMaterial = new THREE.MeshToonMaterial({color: 0x504030});
 	tableMaterial = new THREE.MeshToonMaterial({color: 0xccaa22});
 	tableMaterialHighlight = new THREE.MeshToonMaterial({color: 0xddbb33});
@@ -421,6 +429,18 @@ let switchPlayerTeam = (playerID, team) => {
 	newTeamBox.append(playerEntry);
 }
 
+let addOverlayItem = (overlayType, trackTarget, details) => {
+	let newOvItem = document.createElement("div");
+	newOvItem.classList.add("ov_item");
+	newOvItem.classList.add(overlayType);
+	if (overlayType === "player_name") {
+		newOvItem.textContent = details.name;
+		newOvItem.classList.add("team" + details.team);
+	}
+	overlayList.push({ovItem: newOvItem, trackTarget: trackTarget, lastCoords: undefined});
+	gameOverlay.append(newOvItem);
+}
+
 let lastTime;
 let timeAccumulator = 0;
 let frameTime = 1000/60;
@@ -457,7 +477,7 @@ let gameLoop = () => {
 }
 
 let renderFrame = () => {
-	playerList.forEach((playerObject) => {
+	playerList.forEach(playerObject => {
 		let playerMesh = playerObject.connectedMesh
 		playerMesh.position.x = playerObject.xPosition;
 		playerMesh.position.y = playerObject.yPosition;
@@ -472,7 +492,7 @@ let renderFrame = () => {
 			}
 		});
 	});
-	itemList.forEach((itemObject) => {
+	itemList.forEach(itemObject => {
 		let itemMesh = itemObject.connectedMesh;
 		itemMesh.parent = itemObject.holder.connectedMesh;
 		// Held by player or appliance
@@ -495,6 +515,16 @@ let renderFrame = () => {
 		}
 	});
 	renderer.render(scene, camera);
+	overlayList.forEach(overlayItem => {
+		let overlayElement = overlayItem.ovItem
+		let trackTarget = overlayItem.trackTarget;
+		let coords = meshToScreenCoordinates(trackTarget);
+		if (overlayItem.lastCoords?.x !== coords.x || overlayItem.lastCoords?.y !== coords.y) {
+			overlayElement.style.setProperty("--x-pos", coords.x + "px");
+			overlayElement.style.setProperty("--y-pos", coords.y + "px");
+			overlayItem.lastCoords = coords;
+		}
+	});
 }
 
 
@@ -629,30 +659,33 @@ let gameLogic = () => {
 			playerObject.releasedGrab = true;
 		}
 		if (playerObject.usePressed) {
-			// Interact button: can make progress on item
-			applianceList.forEach((applianceObject) => {
-				if (applianceObject.holdingItem) {
-					if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
-						let targetItem = applianceObject.heldItem;
-						if (!targetItem.chopped) {
-							targetItem.progress += 1;
-						}
-						if (targetItem.progress >= 100) {
-							targetItem.chopped = true;
+			// Interact button: can activate held item
+			if (playerObject.holdingItem && playerObject.heldItem.hasAbility) {
+				// Use ability
+				if (playerObject.releasedUse) {
+					console.log("Used item ability: " + playerObject.heldItem.subType);
+				}
+			}
+			else {
+				// Interact button: can make progress on item
+				applianceList.forEach((applianceObject) => {
+					if (applianceObject.holdingItem) {
+						if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
+							let targetItem = applianceObject.heldItem;
+							if (!targetItem.chopped) {
+								targetItem.progress += 1;
+							}
+							if (targetItem.progress >= 100) {
+								targetItem.chopped = true;
+							}
 						}
 					}
-				}
-			});
-			// if (!playerObject.holdingItem) {
-			// 	if ((playerObject.xTarget === 3 && playerObject.yTarget === 3 && itemObject.onTopTable) ||
-			// 		(playerObject.xTarget === 3 && playerObject.yTarget === -3 && !itemObject.onTopTable)) {
-			// 		// Make progress
-			// 		itemObject.progress += 1;
-			// 		if (itemObject.progress >= 200) {
-			// 			itemObject.chopped = true;
-			// 		}
-			// 	}
-			// }
+				});
+			}
+			playerObject.releasedUse = false;
+		}
+		else {
+			playerObject.releasedUse = true;
 		}
 	});
 }
@@ -808,9 +841,7 @@ let setupNetworkConnection = () => {
 					else if (newOtherPlayerObject.team === 2) {
 						newOtherPlayerMesh.material = playerTeam2Material;
 					}
-
-					// newOtherPlayerObject.xPosition += Math.random();
-					// newOtherPlayerObject.yPosition += Math.random();
+					addOverlayItem("player_name", newOtherPlayerMesh, {name: otherPlayer.playerName, team: otherPlayer.playerTeam});
 				});
 			}
 			// other player input

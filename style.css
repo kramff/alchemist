@@ -104,4 +104,40 @@ p {
 	padding-top: 30px;
 }
 
+.game_overlay {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+}
+.ov_item {
+	position: absolute;
+	left: var(--x-pos);
+	top: var(--y-pos);
+}
+.ov_item.player_name {
+    left: calc(var(--x-pos) - 30px);
+    top: calc(var(--y-pos) - 50px);
+    width: 60px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ov_item.player_name.team1 {
+	color: #ff7777;
+}
+.ov_item.player_name.team2 {
+	color: #77ff77;
+}
+
+.game_ui {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
 
