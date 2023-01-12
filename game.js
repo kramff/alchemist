@@ -22,9 +22,6 @@ let tableMaterial;
 let tableMaterialHighlight;
 
 let orbSourceMaterial;
-// let tableMesh;
-// let tableMaterial2;
-// let tableMesh2;
 
 let sphereGeometry;
 let itemMaterial;
@@ -57,9 +54,11 @@ let playerMeshList = [];
 let applianceList = [];
 let applianceMeshList = [];
 
-let itemObject;
 let itemList = [];
 let itemMeshList = [];
+
+let projectileList = [];
+let projectileMeshList = [];
 
 let connectGameObjectToSceneMesh = (object, mesh) => {
 	object.connectedMesh = mesh;
@@ -176,6 +175,38 @@ let createItemMesh = (itemType) => {
 	scene.add(newItemMesh);
 	itemMeshList.push(newItemMesh);
 	return newItemMesh;
+}
+
+let createProjectile = (projectileType, xPosition, yPosition, rotation, speed) => {
+	let newProjectile = {
+		type: "projectile",
+		subType: projectileType,
+		connectedMesh: undefined,
+		xPosition: xPosition || 0,
+		yPosition: yPosition || 0,
+		rotation: rotation || 0,
+		speed: speed || 0,
+	};
+	projectileList.push(newProjectile);
+	return newProjectile;
+}
+let createprojectileMesh = (projectileType) => {
+	let newProjectileMesh;
+	if (projectileType === "bullet") {
+		newProjectileMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
+	}
+	else if (projectileType === "thrownBall") {
+		newProjectileMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+	}
+	else if (projectileType === "swordSwing") {
+		newProjectileMesh = new THREE.Mesh(swordGeometry, swordMaterial);
+	}
+	else {
+		console.log("projectile type missing: " + projectileType);
+	}
+	scene.add(newProjectileMesh);
+	projectileMeshList.push(newProjectileMesh);
+	return newProjectileMesh;
 }
 
 let wDown = false;
@@ -301,31 +332,6 @@ let init = () => {
 	sceneLight2 = new THREE.AmbientLight(0xcccccc, 0.4);
 	scene.add(sceneLight2);
 
-
-	//tableMesh = createApplianceMesh("table");
-
-	//tableMesh.position.set(3, 3, 0);
-	// scene.add(tableMesh);
-
-	// tableMaterial2 = new THREE.MeshToonMaterial({color: 0xccaa22});
-	// tableMesh2 = new THREE.Mesh(cubeGeometry, tableMaterial2);
-	// tableMesh2.position.set(3, -3, 0);
-	// scene.add(tableMesh2);
-
-	// itemMesh = new THREE.Mesh(sphereGeometry, itemMaterial);
-	// itemMesh.position.set(3, 3, 1);
-	// scene.add(itemMesh);
-
-	// progressMesh = new THREE.Mesh(smallRectGeometry, progressMaterial);
-	// progressMesh.position.set(0, 0.3, 0.3);
-	// itemMesh.add(progressMesh);
-	// progressMesh.scale.x = 0;
-
-
-	// let newPlayerObject = createPlayer();
-	// let newPlayerMesh = createPlayerMesh();
-
-	// connectGameObjectToSceneMesh(newPlayerObject, newPlayerMesh);
 	var listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
 
 	for (let i = 0; i < 6; i++) {
@@ -334,12 +340,6 @@ let init = () => {
 		newTableMesh.position.x = newTable.xPosition;
 		newTableMesh.position.y = newTable.yPosition;
 		connectGameObjectToSceneMesh(newTable, newTableMesh);
-		// if (i % 2 === 0) {
-		// 	let newItem = createItem("orb");
-		// 	let newItemMesh = createItemMesh("orb");
-		// 	connectGameObjectToSceneMesh(newItem, newItemMesh);
-		// 	transferItem(undefined, newTable, newItem);
-		// }
 		let newItem = createItem(listOfItems[i]);
 		let newItemMesh = createItemMesh(listOfItems[i]);
 		connectGameObjectToSceneMesh(newItem, newItemMesh);
@@ -352,12 +352,6 @@ let init = () => {
 		newTableMesh.position.y = newTable.yPosition;
 		connectGameObjectToSceneMesh(newTable, newTableMesh);
 	}
-
-	// itemObject = {
-		// onTopTable: true,
-		// chopped: false,
-		// progress: 0,
-	// }
 
 	addEventListener("keydown", keyDownFunction);
 	addEventListener("keyup", keyUpFunction);
@@ -478,7 +472,7 @@ let gameLoop = () => {
 
 let renderFrame = () => {
 	playerList.forEach(playerObject => {
-		let playerMesh = playerObject.connectedMesh
+		let playerMesh = playerObject.connectedMesh;
 		playerMesh.position.x = playerObject.xPosition;
 		playerMesh.position.y = playerObject.yPosition;
 		playerMesh.rotation.z = playerObject.rotation;
@@ -513,6 +507,16 @@ let renderFrame = () => {
 		if (itemObject.chopped) {
 			itemMesh.material = itemMaterial2;
 		}
+	});
+	projectileList.forEach(projectileObject => {
+		let projectileMesh = projectileObject.connectedMesh;
+		// Apply speed
+		projectileObject.xPosition += Math.cos(projectileObject.rotation) * projectileObject.speed;
+		projectileObject.yPosition += Math.sin(projectileObject.rotation) * projectileObject.speed;
+		// Update mesh position
+		projectileMesh.position.x = projectileObject.xPosition;
+		projectileMesh.position.y = projectileObject.yPosition;
+		projectileMesh.rotation.z = projectileObject.rotation;
 	});
 	renderer.render(scene, camera);
 	overlayList.forEach(overlayItem => {
@@ -630,24 +634,10 @@ let gameLogic = () => {
 					if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
 						if (playerObject.holdingItem && !applianceObject.holdingItem) {
 							// Put down object
-							// playerObject.heldItem.heldByPlayer = false;
-							// playerObject.heldItem.heldByAppliance = true;
-							// playerObject.heldItem.holder = applianceObject;
-							// applianceObject.holdingItem = true;
-							// applianceObject.heldItem = playerObject.heldItem;
-							// playerObject.holdingItem = false;
-							// playerObject.heldItem = undefined;
 							transferItem(playerObject, applianceObject, playerObject.heldItem);
 						}
 						else if (!playerObject.holdingItem && applianceObject.holdingItem) {
 							// Pick up object
-							// applianceObject.heldItem.heldByPlayer = true;
-							// applianceObject.heldItem.heldByAppliance = false;
-							// applianceObject.heldItem.holder = playerObject;
-							// playerObject.holdingItem = true;
-							// playerObject.heldItem = applianceObject.heldItem;
-							// applianceObject.holdingItem = false;
-							// applianceObject.heldItem = undefined;
 							transferItem(applianceObject, playerObject, applianceObject.heldItem);
 						}
 					}
@@ -663,7 +653,21 @@ let gameLogic = () => {
 			if (playerObject.holdingItem && playerObject.heldItem.hasAbility) {
 				// Use ability
 				if (playerObject.releasedUse) {
-					console.log("Used item ability: " + playerObject.heldItem.subType);
+					// console.log("Used item ability: " + playerObject.heldItem.subType);
+					let abilityType = playerObject.heldItem.subType;
+					let projectileType;
+					if (abilityType === "gun") {
+						projectileType = "bullet";
+					}
+					else if (abilityType === "sword") {
+						projectileType = "swordSwing";
+					}
+					else if (abilityType === "ball") {
+						projectileType = "thrownBall";
+					}
+					let projectileObject = createProjectile(projectileType, playerObject.xPosition, playerObject.yPosition, playerObject.rotation, 0.1);
+					let projectileMesh = createprojectileMesh(projectileType);
+					connectGameObjectToSceneMesh(projectileObject, projectileMesh);
 				}
 			}
 			else {
