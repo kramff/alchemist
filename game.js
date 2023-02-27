@@ -517,6 +517,12 @@ let renderFrame = () => {
 		projectileMesh.position.x = projectileObject.xPosition;
 		projectileMesh.position.y = projectileObject.yPosition;
 		projectileMesh.rotation.z = projectileObject.rotation;
+		// Test collisions against players
+		playerList.forEach(playerObject => {
+			if (collisionTest(playerObject, projectileObject)) {
+				console.log("Collision!");
+			}
+		});
 	});
 	renderer.render(scene, camera);
 	overlayList.forEach(overlayItem => {
@@ -529,6 +535,12 @@ let renderFrame = () => {
 			overlayItem.lastCoords = coords;
 		}
 	});
+}
+
+let collisionTest = (object1, object2) => {
+	let xDif = Math.abs(object1.xPosition - object2.xPosition);
+	let yDif = Math.abs(object1.yPosition - object2.yPosition);
+	return (xDif < 0.5 && yDif < 0.5);
 }
 
 
