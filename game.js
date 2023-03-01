@@ -44,6 +44,9 @@ let bulletMaterial;
 let ballGeometry;
 let ballMaterial;
 
+let hitEffectGeometry;
+let hitEffectMaterial;
+
 let sceneLight;
 let sceneLight2;
 
@@ -59,6 +62,9 @@ let itemMeshList = [];
 
 let projectileList = [];
 let projectileMeshList = [];
+
+let effectList = [];
+let effectMeshList = [];
 
 let connectGameObjectToSceneMesh = (object, mesh) => {
 	object.connectedMesh = mesh;
@@ -89,6 +95,7 @@ let createPlayer = () => {
 		id: undefined,
 		name: undefined,
 		team: undefined,
+		toBeRemoved: false,
 	};
 	playerList.push(newPlayer);
 	return newPlayer;
@@ -98,6 +105,12 @@ let createPlayerMesh = () => {
 	scene.add(newPlayerMesh);
 	playerMeshList.push(newPlayerMesh);
 	return newPlayerMesh;
+}
+let removePlayer = (playerObject) => {
+	let connectedPlayerMesh = playerObject.connectedMesh;
+	scene.remove(playerObject.connectedMesh);
+	playerMeshList.splice(playerMeshList.indexOf(connectedPlayerMesh), 1);
+	playerList.splice(playerList.indexOf(playerObject), 1);
 }
 
 let createAppliance = (applianceType, xPosition, yPosition) => {
@@ -110,6 +123,7 @@ let createAppliance = (applianceType, xPosition, yPosition) => {
 		hasItem: false,
 		heldItem: undefined,
 		connectedMesh: undefined,
+		toBeRemoved: false,
 	};
 	applianceList.push(newAppliance);
 	return newAppliance;
@@ -129,6 +143,12 @@ let createApplianceMesh = (applianceType) => {
 	applianceMeshList.push(newApplianceMesh);
 	return newApplianceMesh;
 }
+let removeAppliance = (applianceObject) => {
+	let connectedApplianceMesh = applianceObject.connectedMesh;
+	scene.remove(applianceObject.connectedMesh);
+	applianceMeshList.splice(applianceMeshList.indexOf(connectedApplianceMesh), 1);
+	applianceList.splice(applianceList.indexOf(applianceObject), 1);
+}
 
 let createItem = (itemType) => {
 	let newItem = {
@@ -143,6 +163,7 @@ let createItem = (itemType) => {
 		fixedRotation: true,
 		initialRotation: 0,
 		hasAbility: false,
+		toBeRemoved: false,
 	};
 	if (itemType === "sword" || itemType === "gun" || itemType === "ball") {
 		newItem.fixedRotation = false;
@@ -176,6 +197,12 @@ let createItemMesh = (itemType) => {
 	itemMeshList.push(newItemMesh);
 	return newItemMesh;
 }
+let removeItem = (ItemObject) => {
+	let connectedItemMesh = itemObject.connectedMesh;
+	scene.remove(itemObject.connectedMesh);
+	itemMeshList.splice(itemMeshList.indexOf(connectedItemMesh), 1);
+	itemList.splice(itemList.indexOf(itemObject), 1);
+}
 
 let createProjectile = (projectileType, xPosition, yPosition, rotation, speed) => {
 	let newProjectile = {
@@ -186,11 +213,13 @@ let createProjectile = (projectileType, xPosition, yPosition, rotation, speed) =
 		yPosition: yPosition || 0,
 		rotation: rotation || 0,
 		speed: speed || 0,
+		sourcePlayer: undefined,
+		toBeRemoved: false,
 	};
 	projectileList.push(newProjectile);
 	return newProjectile;
 }
-let createprojectileMesh = (projectileType) => {
+let createProjectileMesh = (projectileType) => {
 	let newProjectileMesh;
 	if (projectileType === "bullet") {
 		newProjectileMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
@@ -207,6 +236,41 @@ let createprojectileMesh = (projectileType) => {
 	scene.add(newProjectileMesh);
 	projectileMeshList.push(newProjectileMesh);
 	return newProjectileMesh;
+}
+let removeProjectile = (projectileObject) => {
+	let connectedProjectileMesh = projectileObject.connectedMesh;
+	scene.remove(projectileObject.connectedMesh);
+	projectileMeshList.splice(projectileMeshList.indexOf(connectedProjectileMesh), 1);
+	projectileList.splice(projectileList.indexOf(projectileObject), 1);
+}
+
+let createEffect = (effectType, xPosition, yPosition) => {
+	let newEffect = {
+		type: "effect",
+		subType: effectType,
+		connectedMesh: undefined,
+		xPosition: xPosition || 0,
+		yPosition: yPosition || 0,
+		lifespan: 200,
+		toBeRemoved: false,
+	}
+	effectList.push(newEffect);
+	return newEffect;
+}
+let createEffectMesh = (effectType) => {
+	let newEffectMesh;
+	if (effectType === "hit") {
+		newEffectMesh = new THREE.Mesh(hitEffectGeometry, hitEffectMaterial);
+	}
+	scene.add(newEffectMesh);
+	effectMeshList.push(newEffectMesh);
+	return newEffectMesh;
+}
+let removeEffect = (effectObject) => {
+	let connectedEffectMesh = effectObject.connectedMesh;
+	scene.remove(effectObject.connectedMesh);
+	effectMeshList.splice(effectMeshList.indexOf(connectedEffectMesh), 1);
+	effectList.splice(effectList.indexOf(effectObject), 1);
 }
 
 let wDown = false;
@@ -303,6 +367,7 @@ let init = () => {
 	gunGeometry = new THREE.BoxGeometry(0.2, 0.45, 0.2);
 	bulletGeometry = new THREE.SphereGeometry(0.17, 5, 4);
 	ballGeometry = new THREE.DodecahedronGeometry(0.35, 0);
+	hitEffectGeometry = new THREE.RingGeometry(0.2, 0.5, 14);
 
 	// Materials
 	playerMaterial = new THREE.MeshToonMaterial({color: 0x22ff22});
@@ -510,19 +575,15 @@ let renderFrame = () => {
 	});
 	projectileList.forEach(projectileObject => {
 		let projectileMesh = projectileObject.connectedMesh;
-		// Apply speed
-		projectileObject.xPosition += Math.cos(projectileObject.rotation) * projectileObject.speed;
-		projectileObject.yPosition += Math.sin(projectileObject.rotation) * projectileObject.speed;
 		// Update mesh position
 		projectileMesh.position.x = projectileObject.xPosition;
 		projectileMesh.position.y = projectileObject.yPosition;
 		projectileMesh.rotation.z = projectileObject.rotation;
-		// Test collisions against players
-		playerList.forEach(playerObject => {
-			if (collisionTest(playerObject, projectileObject)) {
-				console.log("Collision!");
-			}
-		});
+	});
+	effectList.forEach(effectObject => {
+		let effectMesh = effectObject.connectedMesh;
+		effectMesh.position.x = effectObject.xPosition;
+		effectMesh.position.y = effectObject.yPosition;
 	});
 	renderer.render(scene, camera);
 	overlayList.forEach(overlayItem => {
@@ -545,7 +606,7 @@ let collisionTest = (object1, object2) => {
 
 
 let gameLogic = () => {
-
+	let anyRemovals = false;
 	playerList.forEach((playerObject) => {
 		// Player Movement
 
@@ -678,8 +739,9 @@ let gameLogic = () => {
 						projectileType = "thrownBall";
 					}
 					let projectileObject = createProjectile(projectileType, playerObject.xPosition, playerObject.yPosition, playerObject.rotation, 0.1);
-					let projectileMesh = createprojectileMesh(projectileType);
+					let projectileMesh = createProjectileMesh(projectileType);
 					connectGameObjectToSceneMesh(projectileObject, projectileMesh);
+					projectileObject.sourcePlayer = playerObject;
 				}
 			}
 			else {
@@ -704,6 +766,42 @@ let gameLogic = () => {
 			playerObject.releasedUse = true;
 		}
 	});
+	projectileList.forEach(projectileObject => {
+		// Apply speed
+		projectileObject.xPosition += Math.cos(projectileObject.rotation) * projectileObject.speed;
+		projectileObject.yPosition += Math.sin(projectileObject.rotation) * projectileObject.speed;
+		// Test collisions against players
+		playerList.forEach(playerObject => {
+			if (projectileObject.sourcePlayer !== playerObject && collisionTest(playerObject, projectileObject)) {
+				// console.log("Collision!");
+				// Create hit effect
+				let effectObject = createEffect("hit", projectileObject.xPosition, projectileObject.yPosition);
+				let effectMesh = createEffectMesh("hit");
+				connectGameObjectToSceneMesh(effectObject, effectMesh);
+				// Remove projectile
+				projectileObject.toBeRemoved = true;
+				anyRemovals = true;
+			}
+		});
+	});
+	effectList.forEach(effectObject => {
+		let effectMesh = effectObject.connectedMesh;
+		effectMesh.scale.x *= 0.9;
+		effectMesh.scale.y *= 0.9;
+		effectObject.lifespan -= 1;
+		if (effectObject.lifespan <= 0) {
+			effectObject.toBeRemoved = true;
+			anyRemovals = true;
+		}
+	});
+	// Removal loops
+	if (anyRemovals) {
+		playerList.filter(playerObject => playerObject.toBeRemoved).forEach(playerObject => {removePlayer(playerObject);});
+		projectileList.filter(projectileObject => projectileObject.toBeRemoved).forEach(projectileObject => {removeProjectile(projectileObject);});
+		applianceList.filter(applianceObject => applianceObject.toBeRemoved).forEach(applianceObject => {removeAppliance(applianceObject);});
+		itemList.filter(itemObject => itemObject.toBeRemoved).forEach(itemObject => {removeItem(itemObject);});
+		effectList.filter(effectObject => effectObject.toBeRemoved).forEach(effectObject => {removeEffect(effectObject);});
+	}
 }
 let transferItem = (oldHolder, newHolder, item) => {
 	if (!!oldHolder) {
