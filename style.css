@@ -119,12 +119,13 @@ p {
 }
 .ov_item.player_name {
     left: calc(var(--x-pos) - 30px);
-    top: calc(var(--y-pos) - 50px);
+    top: calc(var(--y-pos) - 65px);
     width: 60px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
+    white-space: nowrap;
 }
 .ov_item.player_name.team1 {
 	color: #ff7777;
@@ -132,6 +133,28 @@ p {
 .ov_item.player_name.team2 {
 	color: #77ff77;
 }
+
+.ov_item.player_health_bar {
+	left: calc(var(--x-pos) - 20px);
+	top: calc(var(--y-pos) - 40px);
+	width: 40px;
+	height: 8px;
+	background-color: gray;
+}
+.health_bar_inner {
+	position: absolute;
+	left: 0;
+	top: 0;
+	height: 100%;
+	width: calc(100% * var(--health) / var(--max-health));
+}
+.ov_item.player_health_bar.team1 .health_bar_inner {
+	background-color: #ff7777;
+}
+.ov_item.player_health_bar.team2 .health_bar_inner {
+	background-color: #77ff77;
+}
+
 
 .game_ui {
 	position: absolute;

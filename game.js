@@ -80,6 +80,8 @@ let createPlayer = () => {
 		rotation: 0,
 		xTarget: 0,
 		yTarget: 0,
+		health: 10,
+		maxHealth: 10,
 		hasItem: false,
 		heldItem: undefined,
 		upPressed: false,
@@ -488,7 +490,7 @@ let switchPlayerTeam = (playerID, team) => {
 	newTeamBox.append(playerEntry);
 }
 
-let addOverlayItem = (overlayType, trackTarget, details) => {
+let addOverlayItem = (overlayType, trackTarget, details, updateObject) => {
 	let newOvItem = document.createElement("div");
 	newOvItem.classList.add("ov_item");
 	newOvItem.classList.add(overlayType);
@@ -496,7 +498,15 @@ let addOverlayItem = (overlayType, trackTarget, details) => {
 		newOvItem.textContent = details.name;
 		newOvItem.classList.add("team" + details.team);
 	}
-	overlayList.push({ovItem: newOvItem, trackTarget: trackTarget, lastCoords: undefined});
+	else if (overlayType === "player_health_bar") {
+		newOvItem.style.setProperty("--health", details.health);
+		newOvItem.style.setProperty("--max-health", details.maxHealth);
+		let healthBarInner = document.createElement("div");
+		healthBarInner.classList.add("health_bar_inner");
+		newOvItem.classList.add("team" + details.team);
+		newOvItem.append(healthBarInner);
+	}
+	overlayList.push({overlayType: overlayType, ovItem: newOvItem, trackTarget: trackTarget, updateObject: updateObject || undefined, lastCoords: undefined});
 	gameOverlay.append(newOvItem);
 }
 
@@ -594,6 +604,15 @@ let renderFrame = () => {
 			overlayElement.style.setProperty("--x-pos", coords.x + "px");
 			overlayElement.style.setProperty("--y-pos", coords.y + "px");
 			overlayItem.lastCoords = coords;
+		}
+		if (overlayItem.overlayType === "player_health_bar") {
+			var displayedHealth = overlayElement.style.getPropertyValue("--health");
+			var displayedMaxHealth = overlayElement.style.getPropertyValue("--max-health");
+			// Using != because the dom saves these as strings instead of numbers
+			if (overlayItem.updateObject.health != displayedHealth || overlayItem.updateObject.maxHealth != displayedMaxHealth) {
+				overlayElement.style.setProperty("--health", overlayItem.updateObject.health);
+				overlayElement.style.setProperty("--max-health", overlayItem.updateObject.maxHealth);
+			}
 		}
 	});
 }
@@ -774,6 +793,8 @@ let gameLogic = () => {
 		playerList.forEach(playerObject => {
 			if (projectileObject.sourcePlayer !== playerObject && collisionTest(playerObject, projectileObject)) {
 				// console.log("Collision!");
+				// Subtract 1 health from player
+				playerObject.health -= 1;
 				// Create hit effect
 				let effectObject = createEffect("hit", projectileObject.xPosition, projectileObject.yPosition);
 				let effectMesh = createEffectMesh("hit");
@@ -956,6 +977,7 @@ let setupNetworkConnection = () => {
 						newOtherPlayerMesh.material = playerTeam2Material;
 					}
 					addOverlayItem("player_name", newOtherPlayerMesh, {name: otherPlayer.playerName, team: otherPlayer.playerTeam});
+					addOverlayItem("player_health_bar", newOtherPlayerMesh, {health: newOtherPlayerObject.health, maxHealth: newOtherPlayerObject.maxHealth, team: otherPlayer.playerTeam}, newOtherPlayerObject);
 				});
 			}
 			// other player input
