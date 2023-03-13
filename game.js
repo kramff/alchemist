@@ -216,6 +216,7 @@ let createProjectile = (projectileType, xPosition, yPosition, rotation, speed) =
 		rotation: rotation || 0,
 		speed: speed || 0,
 		sourcePlayer: undefined,
+		lifespan: 500,
 		toBeRemoved: false,
 	};
 	projectileList.push(newProjectile);
@@ -490,7 +491,7 @@ let switchPlayerTeam = (playerID, team) => {
 	newTeamBox.append(playerEntry);
 }
 
-let addOverlayItem = (overlayType, trackTarget, details, updateObject) => {
+let addOverlayItem = (overlayType, trackTarget, details, connectedObject) => {
 	let newOvItem = document.createElement("div");
 	newOvItem.classList.add("ov_item");
 	newOvItem.classList.add(overlayType);
@@ -506,7 +507,7 @@ let addOverlayItem = (overlayType, trackTarget, details, updateObject) => {
 		newOvItem.classList.add("team" + details.team);
 		newOvItem.append(healthBarInner);
 	}
-	overlayList.push({overlayType: overlayType, ovItem: newOvItem, trackTarget: trackTarget, updateObject: updateObject || undefined, lastCoords: undefined});
+	overlayList.push({overlayType: overlayType, ovItem: newOvItem, trackTarget: trackTarget, connectedObject: connectedObject || undefined, lastCoords: undefined});
 	gameOverlay.append(newOvItem);
 }
 
@@ -609,9 +610,9 @@ let renderFrame = () => {
 			var displayedHealth = overlayElement.style.getPropertyValue("--health");
 			var displayedMaxHealth = overlayElement.style.getPropertyValue("--max-health");
 			// Using != because the dom saves these as strings instead of numbers
-			if (overlayItem.updateObject.health != displayedHealth || overlayItem.updateObject.maxHealth != displayedMaxHealth) {
-				overlayElement.style.setProperty("--health", overlayItem.updateObject.health);
-				overlayElement.style.setProperty("--max-health", overlayItem.updateObject.maxHealth);
+			if (overlayItem.connectedObject.health != displayedHealth || overlayItem.connectedObject.maxHealth != displayedMaxHealth) {
+				overlayElement.style.setProperty("--health", overlayItem.connectedObject.health);
+				overlayElement.style.setProperty("--max-health", overlayItem.connectedObject.maxHealth);
 			}
 		}
 	});
@@ -626,7 +627,7 @@ let collisionTest = (object1, object2) => {
 
 let gameLogic = () => {
 	let anyRemovals = false;
-	playerList.forEach((playerObject) => {
+	playerList.forEach(playerObject => {
 		// Player Movement
 
 		let xSpeedChange = 0;
@@ -704,6 +705,19 @@ let gameLogic = () => {
 		if (!playerObject.anchorPressed) {
 			playerObject.xSpeed += xSpeedChange;
 			playerObject.ySpeed += ySpeedChange;
+		}
+		// Check for appliances in the way
+		let xPotential = playerObject.xPosition + playerObject.xSpeed;
+		let yPotential = playerObject.yPosition + playerObject.ySpeed;
+		let applianceInWay = applianceList.find(appliance => {
+			if (Math.abs(appliance.xPosition - xPotential) <= 1 &&
+				Math.abs(appliance.yPosition - yPotential) <= 1) {
+				return true;
+			}
+		});
+		if (applianceInWay !== undefined) {
+			//playerObject.xSpeed *= 0.5;
+			//playerObject.ySpeed *= 0.5;
 		}
 		playerObject.xPosition += playerObject.xSpeed;
 		playerObject.yPosition += playerObject.ySpeed;
@@ -804,6 +818,12 @@ let gameLogic = () => {
 				anyRemovals = true;
 			}
 		});
+		// Reduce lifespan and remove if time is up
+		projectileObject.lifespan -= 1;
+		if (projectileObject.lifespan <= 0) {
+			projectileObject.toBeRemoved = true;
+			anyRemovals = true;
+		}
 	});
 	effectList.forEach(effectObject => {
 		let effectMesh = effectObject.connectedMesh;
