@@ -413,8 +413,15 @@ let init = () => {
 		connectGameObjectToSceneMesh(newItem, newItemMesh);
 		transferItem(undefined, newTable, newItem);
 	}
-	for (let i = 0; i < 4; i++) {
-		let newTable = createAppliance("table", i * 3 - 5, -4);
+	for (let i = 0; i < 6; i++) {
+		let newTable = createAppliance("table", i - 3, -4);
+		let newTableMesh = createApplianceMesh("table");
+		newTableMesh.position.x = newTable.xPosition;
+		newTableMesh.position.y = newTable.yPosition;
+		connectGameObjectToSceneMesh(newTable, newTableMesh);
+	}
+	for (let i = 0; i < 6; i++) {
+		let newTable = createAppliance("table", i + 1, -3);
 		let newTableMesh = createApplianceMesh("table");
 		newTableMesh.position.x = newTable.xPosition;
 		newTableMesh.position.y = newTable.yPosition;
@@ -709,16 +716,35 @@ let gameLogic = () => {
 		// Check for appliances in the way
 		let xPotential = playerObject.xPosition + playerObject.xSpeed;
 		let yPotential = playerObject.yPosition + playerObject.ySpeed;
-		let applianceInWay = applianceList.find(appliance => {
+		applianceList.forEach(appliance => {
 			if (Math.abs(appliance.xPosition - xPotential) <= 1 &&
 				Math.abs(appliance.yPosition - yPotential) <= 1) {
-				return true;
+				let xAppDif = Math.abs(playerObject.xPosition - appliance.xPosition);
+				let yAppDif = Math.abs(playerObject.yPosition - appliance.yPosition);
+				if (xAppDif > yAppDif) {
+					// Left or right side
+					if (playerObject.xPosition > appliance.xPosition) {
+						// Right side
+						playerObject.xSpeed = Math.max(playerObject.xSpeed, 1 + appliance.xPosition - playerObject.xPosition);
+					}
+					else {
+						// Left side
+						playerObject.xSpeed = Math.min(playerObject.xSpeed, -1 + appliance.xPosition - playerObject.xPosition);
+					}
+				}
+				else {
+					// Top or bottom side
+					if (playerObject.yPosition > appliance.yPosition) {
+						// Bottom side
+						playerObject.ySpeed = Math.max(playerObject.ySpeed, 1 + appliance.yPosition - playerObject.yPosition);
+					}
+					else {
+						// Top side
+						playerObject.ySpeed = Math.min(playerObject.ySpeed, -1 + appliance.yPosition - playerObject.yPosition);
+					}
+				}
 			}
 		});
-		if (applianceInWay !== undefined) {
-			//playerObject.xSpeed *= 0.5;
-			//playerObject.ySpeed *= 0.5;
-		}
 		playerObject.xPosition += playerObject.xSpeed;
 		playerObject.yPosition += playerObject.ySpeed;
 		playerObject.xSpeed *= 0.8;
