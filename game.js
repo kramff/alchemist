@@ -50,7 +50,16 @@ let hitEffectMaterial;
 let sceneLight;
 let sceneLight2;
 
-// let playerObject; 
+let createGameState = () => {
+	return {
+		playerList: [],
+		applianceList: [],
+		itemList: [],
+		projectileList: [],
+		effectList: [],
+	}
+}
+
 let playerList = [];
 let playerMeshList = [];
 
@@ -66,9 +75,9 @@ let projectileMeshList = [];
 let effectList = [];
 let effectMeshList = [];
 
-let connectGameObjectToSceneMesh = (object, mesh) => {
-	object.connectedMesh = mesh;
-}
+// let connectGameObjectToSceneMesh = (object, mesh) => {
+// 	object.connectedMesh = mesh;
+// }
 
 let createPlayer = () => {
 	let newPlayer = {
@@ -94,6 +103,7 @@ let createPlayer = () => {
 		releasedGrab: true,
 		releasedUse: true,
 		connectedMesh: undefined,
+		connectedOverlayObjects: {},
 		id: undefined,
 		name: undefined,
 		team: undefined,
@@ -102,16 +112,20 @@ let createPlayer = () => {
 	playerList.push(newPlayer);
 	return newPlayer;
 }
-let createPlayerMesh = () => {
-	let newPlayerMesh = new THREE.Mesh(cubeGeometry, playerMaterial);
+let createPlayerMesh = (playerObject) => {
+	let matToUse = playerMaterial;
+	if (playerObject.team === 1) {
+		matToUse = playerTeam1Material;
+	}
+	else if (playerObject.team === 2) {
+		matToUse = playerTeam2Material;
+	}
+	let newPlayerMesh = new THREE.Mesh(cubeGeometry, matToUse);
 	scene.add(newPlayerMesh);
 	playerMeshList.push(newPlayerMesh);
 	return newPlayerMesh;
 }
 let removePlayer = (playerObject) => {
-	let connectedPlayerMesh = playerObject.connectedMesh;
-	scene.remove(playerObject.connectedMesh);
-	playerMeshList.splice(playerMeshList.indexOf(connectedPlayerMesh), 1);
 	playerList.splice(playerList.indexOf(playerObject), 1);
 }
 
@@ -125,30 +139,29 @@ let createAppliance = (applianceType, xPosition, yPosition) => {
 		hasItem: false,
 		heldItem: undefined,
 		connectedMesh: undefined,
+		connectedOverlayObjects: {},
 		toBeRemoved: false,
 	};
 	applianceList.push(newAppliance);
 	return newAppliance;
 }
-let createApplianceMesh = (applianceType) => {
+let createApplianceMesh = (applianceObject) => {
 	let newApplianceMesh;
-	if (applianceType === "table") {
+	if (applianceObject.subType === "table") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
 	}
-	else if (applianceType === "orbSource") {
+	else if (applianceObject.subType === "orbSource") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
 	}
 	else {
-		console.log("appliance type missing: " + applianceType);
+		console.log("appliance type missing: " + applianceObject.subType);
+		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
 	}
 	scene.add(newApplianceMesh);
 	applianceMeshList.push(newApplianceMesh);
 	return newApplianceMesh;
 }
 let removeAppliance = (applianceObject) => {
-	let connectedApplianceMesh = applianceObject.connectedMesh;
-	scene.remove(applianceObject.connectedMesh);
-	applianceMeshList.splice(applianceMeshList.indexOf(connectedApplianceMesh), 1);
 	applianceList.splice(applianceList.indexOf(applianceObject), 1);
 }
 
@@ -162,6 +175,7 @@ let createItem = (itemType) => {
 		heldByPlayer: false,
 		heldByAppliance: false,
 		connectedMesh: undefined,
+		connectedOverlayObjects: {},
 		fixedRotation: true,
 		initialRotation: 0,
 		hasAbility: false,
@@ -175,34 +189,32 @@ let createItem = (itemType) => {
 	itemList.push(newItem);
 	return newItem;
 }
-let createItemMesh = (itemType) => {
+let createItemMesh = (itemObject) => {
 	let newItemMesh;
-	if (itemType === "orb") {
+	if (itemObject.subType === "orb") {
 		newItemMesh = new THREE.Mesh(sphereGeometry, itemMaterial);
 	}
-	else if (itemType === "sword") {
+	else if (itemObject.subType === "sword") {
 		newItemMesh = new THREE.Mesh(swordGeometry, swordMaterial);
 	}
-	else if (itemType === "gun") {
+	else if (itemObject.subType === "gun") {
 		newItemMesh = new THREE.Mesh(gunGeometry, gunMaterial);
 	}
-	else if (itemType === "bullet") {
+	else if (itemObject.subType === "bullet") {
 		newItemMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
 	}
-	else if (itemType === "ball") {
+	else if (itemObject.subType === "ball") {
 		newItemMesh = new THREE.Mesh(ballGeometry, ballMaterial);
 	}
 	else {
-		console.log("item type missing: " + itemType);
+		console.log("item type missing: " + itemObject.subType);
+		newItemMesh = new THREE.Mesh(sphereGeometry, itemMaterial);
 	}
 	scene.add(newItemMesh);
 	itemMeshList.push(newItemMesh);
 	return newItemMesh;
 }
 let removeItem = (ItemObject) => {
-	let connectedItemMesh = itemObject.connectedMesh;
-	scene.remove(itemObject.connectedMesh);
-	itemMeshList.splice(itemMeshList.indexOf(connectedItemMesh), 1);
 	itemList.splice(itemList.indexOf(itemObject), 1);
 }
 
@@ -211,6 +223,7 @@ let createProjectile = (projectileType, xPosition, yPosition, rotation, speed) =
 		type: "projectile",
 		subType: projectileType,
 		connectedMesh: undefined,
+		connectedOverlayObjects: {},
 		xPosition: xPosition || 0,
 		yPosition: yPosition || 0,
 		rotation: rotation || 0,
@@ -222,28 +235,26 @@ let createProjectile = (projectileType, xPosition, yPosition, rotation, speed) =
 	projectileList.push(newProjectile);
 	return newProjectile;
 }
-let createProjectileMesh = (projectileType) => {
+let createProjectileMesh = (projectileObject) => {
 	let newProjectileMesh;
-	if (projectileType === "bullet") {
+	if (projectileObject.subType === "bullet") {
 		newProjectileMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
 	}
-	else if (projectileType === "thrownBall") {
+	else if (projectileObject.subType === "thrownBall") {
 		newProjectileMesh = new THREE.Mesh(ballGeometry, ballMaterial);
 	}
-	else if (projectileType === "swordSwing") {
+	else if (projectileObject.subType === "swordSwing") {
 		newProjectileMesh = new THREE.Mesh(swordGeometry, swordMaterial);
 	}
 	else {
-		console.log("projectile type missing: " + projectileType);
+		console.log("projectile type missing: " + projectileObject.subType);
+		newProjectileMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
 	}
 	scene.add(newProjectileMesh);
 	projectileMeshList.push(newProjectileMesh);
 	return newProjectileMesh;
 }
 let removeProjectile = (projectileObject) => {
-	let connectedProjectileMesh = projectileObject.connectedMesh;
-	scene.remove(projectileObject.connectedMesh);
-	projectileMeshList.splice(projectileMeshList.indexOf(connectedProjectileMesh), 1);
 	projectileList.splice(projectileList.indexOf(projectileObject), 1);
 }
 
@@ -252,6 +263,7 @@ let createEffect = (effectType, xPosition, yPosition) => {
 		type: "effect",
 		subType: effectType,
 		connectedMesh: undefined,
+		connectedOverlayObjects: {},
 		xPosition: xPosition || 0,
 		yPosition: yPosition || 0,
 		lifespan: 200,
@@ -260,9 +272,9 @@ let createEffect = (effectType, xPosition, yPosition) => {
 	effectList.push(newEffect);
 	return newEffect;
 }
-let createEffectMesh = (effectType) => {
+let createEffectMesh = (effectObject) => {
 	let newEffectMesh;
-	if (effectType === "hit") {
+	if (effectObject.subType === "hit") {
 		newEffectMesh = new THREE.Mesh(hitEffectGeometry, hitEffectMaterial);
 	}
 	scene.add(newEffectMesh);
@@ -270,9 +282,6 @@ let createEffectMesh = (effectType) => {
 	return newEffectMesh;
 }
 let removeEffect = (effectObject) => {
-	let connectedEffectMesh = effectObject.connectedMesh;
-	scene.remove(effectObject.connectedMesh);
-	effectMeshList.splice(effectMeshList.indexOf(connectedEffectMesh), 1);
 	effectList.splice(effectList.indexOf(effectObject), 1);
 }
 
@@ -404,28 +413,28 @@ let init = () => {
 
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance("table", i * 2 - 3, i - 2);
-		let newTableMesh = createApplianceMesh("table");
-		newTableMesh.position.x = newTable.xPosition;
-		newTableMesh.position.y = newTable.yPosition;
-		connectGameObjectToSceneMesh(newTable, newTableMesh);
+		// let newTableMesh = createApplianceMesh("table");
+		// newTableMesh.position.x = newTable.xPosition;
+		// newTableMesh.position.y = newTable.yPosition;
+		// connectGameObjectToSceneMesh(newTable, newTableMesh);
 		let newItem = createItem(listOfItems[i]);
-		let newItemMesh = createItemMesh(listOfItems[i]);
-		connectGameObjectToSceneMesh(newItem, newItemMesh);
+		// let newItemMesh = createItemMesh(listOfItems[i]);
+		// connectGameObjectToSceneMesh(newItem, newItemMesh);
 		transferItem(undefined, newTable, newItem);
 	}
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance("table", i - 3, -4);
-		let newTableMesh = createApplianceMesh("table");
-		newTableMesh.position.x = newTable.xPosition;
-		newTableMesh.position.y = newTable.yPosition;
-		connectGameObjectToSceneMesh(newTable, newTableMesh);
+		// let newTableMesh = createApplianceMesh("table");
+		// newTableMesh.position.x = newTable.xPosition;
+		// newTableMesh.position.y = newTable.yPosition;
+		// connectGameObjectToSceneMesh(newTable, newTableMesh);
 	}
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance("table", i + 1, -3);
-		let newTableMesh = createApplianceMesh("table");
-		newTableMesh.position.x = newTable.xPosition;
-		newTableMesh.position.y = newTable.yPosition;
-		connectGameObjectToSceneMesh(newTable, newTableMesh);
+		// let newTableMesh = createApplianceMesh("table");
+		// newTableMesh.position.x = newTable.xPosition;
+		// newTableMesh.position.y = newTable.yPosition;
+		// connectGameObjectToSceneMesh(newTable, newTableMesh);
 	}
 
 	addEventListener("keydown", keyDownFunction);
@@ -498,24 +507,53 @@ let switchPlayerTeam = (playerID, team) => {
 	newTeamBox.append(playerEntry);
 }
 
-let addOverlayItem = (overlayType, trackTarget, details, connectedObject) => {
-	let newOvItem = document.createElement("div");
-	newOvItem.classList.add("ov_item");
-	newOvItem.classList.add(overlayType);
+// // let addOverlayItem = (overlayType, trackTarget, details, connectedObject) => {
+// let addOverlayItem = (overlayType, connectedObject) => {
+// 	// let newOvItem = document.createElement("div");
+// 	// newOvItem.classList.add("ov_item");
+// 	// newOvItem.classList.add(overlayType);
+// 	// if (overlayType === "player_name") {
+// 	// 	newOvItem.textContent = details.name;
+// 	// 	newOvItem.classList.add("team" + details.team);
+// 	// }
+// 	// else if (overlayType === "player_health_bar") {
+// 	// 	newOvItem.style.setProperty("--health", details.health);
+// 	// 	newOvItem.style.setProperty("--max-health", details.maxHealth);
+// 	// 	let healthBarInner = document.createElement("div");
+// 	// 	healthBarInner.classList.add("health_bar_inner");
+// 	// 	newOvItem.classList.add("team" + details.team);
+// 	// 	newOvItem.append(healthBarInner);
+// 	// }
+// 	// overlayList.push({overlayType: overlayType, ovItem: newOvItem, trackTarget: trackTarget, connectedObject: connectedObject || undefined, lastCoords: undefined});
+// 	overlayList.push({overlayType: overlayType, connectedObject: connectedObject});
+// 	// gameOverlay.append(newOvItem);
+// }
+
+let createOverlayObject = (overlayType, gameObject) => {
+	let newOverlayObject = {
+		overlayType: overlayType,
+		connectedObject: gameObject,
+		overlayElement: document.createElement("div"),
+		xLast: undefined,
+		yLast: undefined,
+	};
+	let ovEl = newOverlayObject.overlayElement;
+	ovEl.classList.add("ov_item");
+	ovEl.classList.add(overlayType);
 	if (overlayType === "player_name") {
-		newOvItem.textContent = details.name;
-		newOvItem.classList.add("team" + details.team);
+		ovEl.textContent = gameObject.name;
+		ovEl.classList.add("team" + gameObject.team);
 	}
 	else if (overlayType === "player_health_bar") {
-		newOvItem.style.setProperty("--health", details.health);
-		newOvItem.style.setProperty("--max-health", details.maxHealth);
 		let healthBarInner = document.createElement("div");
 		healthBarInner.classList.add("health_bar_inner");
-		newOvItem.classList.add("team" + details.team);
-		newOvItem.append(healthBarInner);
+		ovEl.classList.add("team" + gameObject.team);
+		ovEl.append(healthBarInner);
 	}
-	overlayList.push({overlayType: overlayType, ovItem: newOvItem, trackTarget: trackTarget, connectedObject: connectedObject || undefined, lastCoords: undefined});
-	gameOverlay.append(newOvItem);
+	gameObject.connectedOverlayObjects[overlayType] = newOverlayObject;
+	overlayList.push(newOverlayObject);
+	gameOverlay.append(ovEl);
+	return newOverlayObject;
 }
 
 let lastTime;
@@ -553,13 +591,61 @@ let gameLoop = () => {
 	requestAnimationFrame(gameLoop);
 }
 
+let createMissingMeshes = (gameObjectList, createMeshFunc) => {
+	gameObjectList.forEach(gameObject => {
+		if (gameObject.connectedMesh === undefined) {
+			gameObject.connectedMesh = createMeshFunc(gameObject);
+			gameObject.connectedMesh.connectedObject = gameObject;
+		}
+	});
+};
+
+let removeUnneededMeshes = (meshList, gameObjectList) => {
+	meshList.forEach(mesh => {
+		// Condition 1: gameObject isn't in the game anymore (destroyed, or rollbacked to never exist)
+		// Condition 2: gameObject has a different mesh attached (rollback shenanigans)
+		if (!gameObjectList.includes(mesh.connectedObject) || mesh.connectedObject.connectedMesh !== mesh) {
+			scene.remove(mesh);
+			meshList.splice(meshList.indexOf(mesh), 1);
+		}
+	});
+}
+
+let createMissingOverlays = (overlayType, gameObjectList) => {
+	gameObjectList.forEach(gameObject => {
+		if (gameObject.connectedOverlayObjects[overlayType] === undefined) {
+			createOverlayObject(overlayType, gameObject)
+		}
+	});
+};
+
 let renderFrame = () => {
+	// Create meshes for all objects if they haven't been made yet
+	// (Done here to better support rollback)
+	createMissingMeshes(playerList, createPlayerMesh);
+	createMissingMeshes(applianceList, createApplianceMesh);
+	createMissingMeshes(itemList, createItemMesh);
+	createMissingMeshes(projectileList, createProjectileMesh);
+	createMissingMeshes(effectList, createEffectMesh);
+	// Remove unused meshes
+	// Check that the connected object is in the game, and that the connected object is still actually connected
+	removeUnneededMeshes(playerMeshList, playerList);
+	removeUnneededMeshes(applianceMeshList, applianceList);
+	removeUnneededMeshes(itemMeshList, itemList);
+	removeUnneededMeshes(projectileMeshList, projectileList);
+	removeUnneededMeshes(effectMeshList, effectList);
+	// Update rendering position, rotation, material, etc for all objects
+	applianceList.forEach(applianceObject => {
+		let applianceMesh = applianceObject.connectedMesh;
+		applianceMesh.position.x = applianceObject.xPosition;
+		applianceMesh.position.y = applianceObject.yPosition;
+	});
 	playerList.forEach(playerObject => {
 		let playerMesh = playerObject.connectedMesh;
 		playerMesh.position.x = playerObject.xPosition;
 		playerMesh.position.y = playerObject.yPosition;
 		playerMesh.rotation.z = playerObject.rotation;
-		applianceList.forEach((applianceObject) => {
+		applianceList.forEach(applianceObject => {
 			if (playerObject.xTarget === applianceObject.xPosition &&
 				playerObject.yTarget === applianceObject.yPosition) {
 				applianceObject.connectedMesh.material = tableMaterialHighlight;
@@ -571,7 +657,9 @@ let renderFrame = () => {
 	});
 	itemList.forEach(itemObject => {
 		let itemMesh = itemObject.connectedMesh;
-		itemMesh.parent = itemObject.holder.connectedMesh;
+		if (itemObject.holder !== undefined) {
+			itemMesh.parent = itemObject.holder.connectedMesh;
+		}
 		// Held by player or appliance
 		if (itemObject.heldByPlayer) {
 			itemMesh.position.set(1, 0, 0.5);
@@ -593,25 +681,52 @@ let renderFrame = () => {
 	});
 	projectileList.forEach(projectileObject => {
 		let projectileMesh = projectileObject.connectedMesh;
-		// Update mesh position
 		projectileMesh.position.x = projectileObject.xPosition;
 		projectileMesh.position.y = projectileObject.yPosition;
 		projectileMesh.rotation.z = projectileObject.rotation;
 	});
 	effectList.forEach(effectObject => {
 		let effectMesh = effectObject.connectedMesh;
+		effectMesh.scale.x *= 0.9;
+		effectMesh.scale.y *= 0.9;
 		effectMesh.position.x = effectObject.xPosition;
 		effectMesh.position.y = effectObject.yPosition;
 	});
+	// Actually render the 3d scene
 	renderer.render(scene, camera);
+	// Create overlays for all objects that need them
+	createMissingOverlays("player_name", playerList);
+	createMissingOverlays("player_health_bar", playerList);
+	// Remove unneeded overlays
 	overlayList.forEach(overlayItem => {
-		let overlayElement = overlayItem.ovItem
-		let trackTarget = overlayItem.trackTarget;
+		let connectedObject = overlayItem.connectedObject;
+		let connectedObjectType = connectedObject.type;
+		let gameObjectList;
+		if (connectedObjectType === "player") {
+			gameObjectList = playerList;
+		}
+		// Put the other object list conditionals here...
+		else {
+			// No object list? not sure
+			return;
+		}
+		// Condition 1: gameObject isn't in the game anymore (destroyed, or rollbacked to never exist)
+		// Condition 2: gameObject has a different overlay attached for this type (rollback shenanigans)
+		if (!gameObjectList.includes(connectedObject) || connectedObject.connectedOverlayObjects[overlayItem.overlayType] !== overlayItem) {
+			overlayItem.overlayElement.remove();
+			overlayList.splice(overlayList);
+		}
+	});
+	// Update overlays
+	overlayList.forEach(overlayItem => {
+		let overlayElement = overlayItem.overlayElement;
+		let trackTarget = overlayItem.connectedObject.connectedMesh;
 		let coords = meshToScreenCoordinates(trackTarget);
-		if (overlayItem.lastCoords?.x !== coords.x || overlayItem.lastCoords?.y !== coords.y) {
+		if (overlayItem.xLast !== coords.x || overlayItem.yLast !== coords.y) {
 			overlayElement.style.setProperty("--x-pos", coords.x + "px");
 			overlayElement.style.setProperty("--y-pos", coords.y + "px");
-			overlayItem.lastCoords = coords;
+			overlayItem.xLast = coords.x;
+			overlayItem.yLast = coords.y;
 		}
 		if (overlayItem.overlayType === "player_health_bar") {
 			var displayedHealth = overlayElement.style.getPropertyValue("--health");
@@ -630,7 +745,6 @@ let collisionTest = (object1, object2) => {
 	let yDif = Math.abs(object1.yPosition - object2.yPosition);
 	return (xDif < 0.5 && yDif < 0.5);
 }
-
 
 let gameLogic = () => {
 	let anyRemovals = false;
@@ -798,8 +912,6 @@ let gameLogic = () => {
 						projectileType = "thrownBall";
 					}
 					let projectileObject = createProjectile(projectileType, playerObject.xPosition, playerObject.yPosition, playerObject.rotation, 0.1);
-					let projectileMesh = createProjectileMesh(projectileType);
-					connectGameObjectToSceneMesh(projectileObject, projectileMesh);
 					projectileObject.sourcePlayer = playerObject;
 				}
 			}
@@ -837,8 +949,6 @@ let gameLogic = () => {
 				playerObject.health -= 1;
 				// Create hit effect
 				let effectObject = createEffect("hit", projectileObject.xPosition, projectileObject.yPosition);
-				let effectMesh = createEffectMesh("hit");
-				connectGameObjectToSceneMesh(effectObject, effectMesh);
 				// Remove projectile
 				projectileObject.toBeRemoved = true;
 				anyRemovals = true;
@@ -852,9 +962,6 @@ let gameLogic = () => {
 		}
 	});
 	effectList.forEach(effectObject => {
-		let effectMesh = effectObject.connectedMesh;
-		effectMesh.scale.x *= 0.9;
-		effectMesh.scale.y *= 0.9;
 		effectObject.lifespan -= 1;
 		if (effectObject.lifespan <= 0) {
 			effectObject.toBeRemoved = true;
@@ -1009,21 +1116,11 @@ let setupNetworkConnection = () => {
 				goToView("game");
 				backgroundOverGame.classList.remove("active_bg");
 				gameStartPlayerInfo = messageData;
-				gameStartPlayerInfo.forEach(otherPlayer => {
-					let newOtherPlayerObject = createPlayer();
-					newOtherPlayerObject.name = otherPlayer.playerName;
-					newOtherPlayerObject.id = otherPlayer.playerID;
-					newOtherPlayerObject.team = otherPlayer.playerTeam;
-					let newOtherPlayerMesh = createPlayerMesh();
-					connectGameObjectToSceneMesh(newOtherPlayerObject, newOtherPlayerMesh);
-					if (newOtherPlayerObject.team === 1) {
-						newOtherPlayerMesh.material = playerTeam1Material;
-					}
-					else if (newOtherPlayerObject.team === 2) {
-						newOtherPlayerMesh.material = playerTeam2Material;
-					}
-					addOverlayItem("player_name", newOtherPlayerMesh, {name: otherPlayer.playerName, team: otherPlayer.playerTeam});
-					addOverlayItem("player_health_bar", newOtherPlayerMesh, {health: newOtherPlayerObject.health, maxHealth: newOtherPlayerObject.maxHealth, team: otherPlayer.playerTeam}, newOtherPlayerObject);
+				gameStartPlayerInfo.forEach(playerData => {
+					let newPlayerObject = createPlayer();
+					newPlayerObject.name = playerData.playerName;
+					newPlayerObject.id = playerData.playerID;
+					newPlayerObject.team = playerData.playerTeam;
 				});
 			}
 			// other player input
