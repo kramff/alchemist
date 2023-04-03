@@ -33,6 +33,9 @@ button {
 	margin-top: 20px;
 	margin-bottom: 20px;
 }
+button[disabled] {
+	opacity: 0.5;
+}
 
 p {
 	margin: 0;
@@ -114,12 +117,16 @@ p {
 }
 .ov_item {
 	position: absolute;
-	left: var(--x-pos);
-	top: var(--y-pos);
+	left: 0;
+	top: 0;
+	transform: translate(var(--x-pos), var(--y-pos));
+	/*left: var(--x-pos);
+	top: var(--y-pos);*/
 }
 .ov_item.player_name {
-    left: calc(var(--x-pos) - 30px);
-    top: calc(var(--y-pos) - 65px);
+    /*left: calc(var(--x-pos) - 30px);
+    top: calc(var(--y-pos) - 65px);*/
+    transform: translate(var(--x-pos), var(--y-pos)) translate(-30px, -65px);
     width: 60px;
     text-align: center;
     display: flex;
@@ -135,8 +142,9 @@ p {
 }
 
 .ov_item.player_health_bar {
-	left: calc(var(--x-pos) - 20px);
-	top: calc(var(--y-pos) - 40px);
+	/*left: calc(var(--x-pos) - 20px);
+	top: calc(var(--y-pos) - 40px);*/
+	transform: translate(var(--x-pos), var(--y-pos)) translate(-20px, -40px);
 	width: 40px;
 	height: 8px;
 	background-color: gray;
@@ -146,7 +154,10 @@ p {
 	left: 0;
 	top: 0;
 	height: 100%;
-	width: calc(100% * var(--health) / var(--max-health));
+	width: 100%;
+	/*width: calc(100% * var(--health) / var(--max-health));*/
+	transform-origin: left;
+	transform: scaleX(calc(100% * var(--health) / var(--max-health)));
 }
 .ov_item.player_health_bar.team1 .health_bar_inner {
 	background-color: #ff7777;

@@ -57,29 +57,78 @@ let createGameState = () => {
 		itemList: [],
 		projectileList: [],
 		effectList: [],
+		frameCount: 0,
 	}
 }
 
-let playerList = [];
+let copyGameState = (gs) => {
+	let gsNew = createGameState();
+	copyGameObjectList(gsNew, gs.playerList, gsNew.playerList, createPlayer);
+	copyGameObjectList(gsNew, gs.applianceList, gsNew.applianceList, createAppliance);
+	copyGameObjectList(gsNew, gs.itemList, gsNew.itemList, createItem);
+	copyGameObjectList(gsNew, gs.projectileList, gsNew.projectileList, createProjectile);
+	copyGameObjectList(gsNew, gs.effectList, gsNew.effectList, createEffect);
+	// Fix references - Change references from objects in old gamestate to objects in new gamestate
+	// player: heldItem
+	// appliance: heldItem
+	// item: holder
+	// projectile: sourcePlayer
+	fixReferences(gsNew.playerList, "heldItem", gs.itemList, gsNew.itemList);
+	fixReferences(gsNew.applianceList, "heldItem", gs.itemList, gsNew.itemList);
+	fixReferences(gsNew.itemList, "holder", gs.playerList, gsNew.playerList, gs.applianceList, gsNew.applianceList);
+	fixReferences(gsNew.projectileList, "sourcePlayer", gs.playerList, gsNew.playerList);
+	return gsNew;
+}
+
+let copyGameObjectList = (gsNew, sourceObjectList, targetObjectList, createObjFunc) => {
+	sourceObjectList.forEach(gameObject => {
+		let copyObject = createObjFunc(gsNew);
+		Object.keys(gameObject).forEach(key => {
+			if (key !== "connectedMesh" && key !== "connectedOverlayObjects") {
+				copyObject[key] = gameObject[key];
+			}
+		});
+	});
+}
+
+let fixReferences = (fixObjectList, referenceKey, oldReferenceList, newReferenceList, oldReferenceListB, newReferenceListB) => {
+	fixObjectList.forEach(gameObject => {
+		if (gameObject[referenceKey] !== undefined) {
+			let oldReferenceObject = gameObject[referenceKey];
+			let useListBs = false;
+			if (gameObject.type === "item") {
+				// Item can either have a player holder or appliance holder
+				// Main list: players, B list: appliances
+				if (gameObject.heldByAppliance) {
+					useListBs = true;
+				}
+			}
+			if (useListBs) {
+				let oldReferenceIndex = oldReferenceListB.indexOf(oldReferenceObject);
+				// Assumes the lists match order
+				let newReferenceObject = newReferenceListB[oldReferenceIndex];
+				gameObject[referenceKey] = newReferenceObject;
+			}
+			else {
+				let oldReferenceIndex = oldReferenceList.indexOf(oldReferenceObject);
+				// Assumes the lists match order
+				let newReferenceObject = newReferenceList[oldReferenceIndex];
+				gameObject[referenceKey] = newReferenceObject;
+			}
+		}
+	});
+}
+
+let currentGameState;
+let gameStateHistory = [];
+
 let playerMeshList = [];
-
-let applianceList = [];
 let applianceMeshList = [];
-
-let itemList = [];
 let itemMeshList = [];
-
-let projectileList = [];
 let projectileMeshList = [];
-
-let effectList = [];
 let effectMeshList = [];
 
-// let connectGameObjectToSceneMesh = (object, mesh) => {
-// 	object.connectedMesh = mesh;
-// }
-
-let createPlayer = () => {
+let createPlayer = (gs, name, id, team) => {
 	let newPlayer = {
 		type: "player",
 		xPosition: 0,
@@ -104,12 +153,12 @@ let createPlayer = () => {
 		releasedUse: true,
 		connectedMesh: undefined,
 		connectedOverlayObjects: {},
-		id: undefined,
-		name: undefined,
-		team: undefined,
+		id: id,
+		name: name,
+		team: team,
 		toBeRemoved: false,
 	};
-	playerList.push(newPlayer);
+	gs.playerList.push(newPlayer);
 	return newPlayer;
 }
 let createPlayerMesh = (playerObject) => {
@@ -125,11 +174,11 @@ let createPlayerMesh = (playerObject) => {
 	playerMeshList.push(newPlayerMesh);
 	return newPlayerMesh;
 }
-let removePlayer = (playerObject) => {
-	playerList.splice(playerList.indexOf(playerObject), 1);
+let removePlayer = (gs, playerObject) => {
+	gs.playerList.splice(gs.playerList.indexOf(playerObject), 1);
 }
 
-let createAppliance = (applianceType, xPosition, yPosition) => {
+let createAppliance = (gs, applianceType, xPosition, yPosition) => {
 	let newAppliance = {
 		type: "appliance",
 		subType: applianceType,
@@ -142,7 +191,7 @@ let createAppliance = (applianceType, xPosition, yPosition) => {
 		connectedOverlayObjects: {},
 		toBeRemoved: false,
 	};
-	applianceList.push(newAppliance);
+	gs.applianceList.push(newAppliance);
 	return newAppliance;
 }
 let createApplianceMesh = (applianceObject) => {
@@ -161,11 +210,11 @@ let createApplianceMesh = (applianceObject) => {
 	applianceMeshList.push(newApplianceMesh);
 	return newApplianceMesh;
 }
-let removeAppliance = (applianceObject) => {
-	applianceList.splice(applianceList.indexOf(applianceObject), 1);
+let removeAppliance = (gs, applianceObject) => {
+	gs.applianceList.splice(gs.applianceList.indexOf(applianceObject), 1);
 }
 
-let createItem = (itemType) => {
+let createItem = (gs, itemType) => {
 	let newItem = {
 		type: "item",
 		chopped: false,
@@ -186,7 +235,7 @@ let createItem = (itemType) => {
 		newItem.initialRotation = - Math.PI / 2;
 		newItem.hasAbility = true;
 	}
-	itemList.push(newItem);
+	gs.itemList.push(newItem);
 	return newItem;
 }
 let createItemMesh = (itemObject) => {
@@ -214,11 +263,11 @@ let createItemMesh = (itemObject) => {
 	itemMeshList.push(newItemMesh);
 	return newItemMesh;
 }
-let removeItem = (ItemObject) => {
-	itemList.splice(itemList.indexOf(itemObject), 1);
+let removeItem = (gs, itemObject) => {
+	gs.itemList.splice(gs.itemList.indexOf(itemObject), 1);
 }
 
-let createProjectile = (projectileType, xPosition, yPosition, rotation, speed) => {
+let createProjectile = (gs, projectileType, xPosition, yPosition, rotation, speed) => {
 	let newProjectile = {
 		type: "projectile",
 		subType: projectileType,
@@ -232,7 +281,7 @@ let createProjectile = (projectileType, xPosition, yPosition, rotation, speed) =
 		lifespan: 500,
 		toBeRemoved: false,
 	};
-	projectileList.push(newProjectile);
+	gs.projectileList.push(newProjectile);
 	return newProjectile;
 }
 let createProjectileMesh = (projectileObject) => {
@@ -254,11 +303,11 @@ let createProjectileMesh = (projectileObject) => {
 	projectileMeshList.push(newProjectileMesh);
 	return newProjectileMesh;
 }
-let removeProjectile = (projectileObject) => {
-	projectileList.splice(projectileList.indexOf(projectileObject), 1);
+let removeProjectile = (gs, projectileObject) => {
+	gs.projectileList.splice(gs.projectileList.indexOf(projectileObject), 1);
 }
 
-let createEffect = (effectType, xPosition, yPosition) => {
+let createEffect = (gs, effectType, xPosition, yPosition) => {
 	let newEffect = {
 		type: "effect",
 		subType: effectType,
@@ -269,7 +318,7 @@ let createEffect = (effectType, xPosition, yPosition) => {
 		lifespan: 200,
 		toBeRemoved: false,
 	}
-	effectList.push(newEffect);
+	gs.effectList.push(newEffect);
 	return newEffect;
 }
 let createEffectMesh = (effectObject) => {
@@ -281,8 +330,8 @@ let createEffectMesh = (effectObject) => {
 	effectMeshList.push(newEffectMesh);
 	return newEffectMesh;
 }
-let removeEffect = (effectObject) => {
-	effectList.splice(effectList.indexOf(effectObject), 1);
+let removeEffect = (gs, effectObject) => {
+	gs.effectList.splice(gs.effectList.indexOf(effectObject), 1);
 }
 
 let wDown = false;
@@ -360,6 +409,7 @@ let init = () => {
 	startGameButton.onclick = (e) => {
 		sendData("startGame", 0);
 	}
+	
 
 	//nicknameInput.oninput
 	scene = new THREE.Scene();
@@ -409,34 +459,6 @@ let init = () => {
 	sceneLight2 = new THREE.AmbientLight(0xcccccc, 0.4);
 	scene.add(sceneLight2);
 
-	var listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
-
-	for (let i = 0; i < 6; i++) {
-		let newTable = createAppliance("table", i * 2 - 3, i - 2);
-		// let newTableMesh = createApplianceMesh("table");
-		// newTableMesh.position.x = newTable.xPosition;
-		// newTableMesh.position.y = newTable.yPosition;
-		// connectGameObjectToSceneMesh(newTable, newTableMesh);
-		let newItem = createItem(listOfItems[i]);
-		// let newItemMesh = createItemMesh(listOfItems[i]);
-		// connectGameObjectToSceneMesh(newItem, newItemMesh);
-		transferItem(undefined, newTable, newItem);
-	}
-	for (let i = 0; i < 6; i++) {
-		let newTable = createAppliance("table", i - 3, -4);
-		// let newTableMesh = createApplianceMesh("table");
-		// newTableMesh.position.x = newTable.xPosition;
-		// newTableMesh.position.y = newTable.yPosition;
-		// connectGameObjectToSceneMesh(newTable, newTableMesh);
-	}
-	for (let i = 0; i < 6; i++) {
-		let newTable = createAppliance("table", i + 1, -3);
-		// let newTableMesh = createApplianceMesh("table");
-		// newTableMesh.position.x = newTable.xPosition;
-		// newTableMesh.position.y = newTable.yPosition;
-		// connectGameObjectToSceneMesh(newTable, newTableMesh);
-	}
-
 	addEventListener("keydown", keyDownFunction);
 	addEventListener("keyup", keyUpFunction);
 	addEventListener("resize", resizeFunction);
@@ -444,6 +466,22 @@ let init = () => {
 	console.log("starting game loop");
 	lastTime = Date.now();
 	gameLoop();
+}
+
+let initializeGameState = (gs) => {
+	var listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
+
+	for (let i = 0; i < 6; i++) {
+		let newTable = createAppliance(gs, "table", i * 2 - 3, i - 2);
+		let newItem = createItem(gs, listOfItems[i]);
+		transferItem(undefined, newTable, newItem);
+	}
+	for (let i = 0; i < 6; i++) {
+		let newTable = createAppliance(gs, "table", i - 3, -4);
+	}
+	for (let i = 0; i < 6; i++) {
+		let newTable = createAppliance(gs, "table", i + 1, -3);
+	}
 }
 
 let currentView = "entry";
@@ -461,15 +499,26 @@ let roomJoinButtonFunction = (e) => {
 	sendData("joinRoom", {roomID: roomID, playerName: nickname});
 }
 
-let makeRoomOption = (roomName, roomID) => {
+let makeRoomOption = (roomName, roomID, gameStarted) => {
+	let existingOption = document.querySelector(`button.room_option_button[roomid="${roomID}"]`);
+	// Replace existing button if one already exists
+	if (existingOption) {
+		if (gameStarted) {
+			existingOption.disabled = true;
+		}
+		return;
+	}
+
 	let newOption = document.createElement("button");
 	newOption.classList.add("room_option_button");
 	newOption.onclick = roomJoinButtonFunction;
-	// <button class="room_option_button" roomID="1" roomName="Example's room">Join Example's room</button>
 	newOption.setAttribute("roomName", roomName);
 	newOption.setAttribute("roomID", roomID);
-	roomListElement.append(newOption);
 	newOption.textContent = `Join ${roomName}`;
+	if (gameStarted) {
+		newOption.disabled = true;
+	}
+	roomListElement.append(newOption);
 }
 
 let removeRoomOption = (roomID) => {
@@ -507,28 +556,6 @@ let switchPlayerTeam = (playerID, team) => {
 	newTeamBox.append(playerEntry);
 }
 
-// // let addOverlayItem = (overlayType, trackTarget, details, connectedObject) => {
-// let addOverlayItem = (overlayType, connectedObject) => {
-// 	// let newOvItem = document.createElement("div");
-// 	// newOvItem.classList.add("ov_item");
-// 	// newOvItem.classList.add(overlayType);
-// 	// if (overlayType === "player_name") {
-// 	// 	newOvItem.textContent = details.name;
-// 	// 	newOvItem.classList.add("team" + details.team);
-// 	// }
-// 	// else if (overlayType === "player_health_bar") {
-// 	// 	newOvItem.style.setProperty("--health", details.health);
-// 	// 	newOvItem.style.setProperty("--max-health", details.maxHealth);
-// 	// 	let healthBarInner = document.createElement("div");
-// 	// 	healthBarInner.classList.add("health_bar_inner");
-// 	// 	newOvItem.classList.add("team" + details.team);
-// 	// 	newOvItem.append(healthBarInner);
-// 	// }
-// 	// overlayList.push({overlayType: overlayType, ovItem: newOvItem, trackTarget: trackTarget, connectedObject: connectedObject || undefined, lastCoords: undefined});
-// 	overlayList.push({overlayType: overlayType, connectedObject: connectedObject});
-// 	// gameOverlay.append(newOvItem);
-// }
-
 let createOverlayObject = (overlayType, gameObject) => {
 	let newOverlayObject = {
 		overlayType: overlayType,
@@ -536,6 +563,7 @@ let createOverlayObject = (overlayType, gameObject) => {
 		overlayElement: document.createElement("div"),
 		xLast: undefined,
 		yLast: undefined,
+		toBeRemoved: false,
 	};
 	let ovEl = newOverlayObject.overlayElement;
 	ovEl.classList.add("ov_item");
@@ -581,14 +609,21 @@ let gameLoop = () => {
 		while (timeAccumulator > frameTime && limit > 0) {
 			timeAccumulator -= frameTime;
 			limit -= 1;
-			gameLogic();
+			if (currentGameState) {
+				gameLogic(currentGameState);
+			}
 		}
 		if (limit === 0) {
 			timeAccumulator = 0;
 		}
 	}
-	renderFrame();
+	if (currentGameState) {
+		renderFrame(currentGameState);
+	}
 	requestAnimationFrame(gameLoop);
+	if (currentGameState) {
+		gameStateHistory.push(copyGameState(currentGameState));
+	}
 }
 
 let createMissingMeshes = (gameObjectList, createMeshFunc) => {
@@ -602,8 +637,8 @@ let createMissingMeshes = (gameObjectList, createMeshFunc) => {
 
 let removeUnneededMeshes = (meshList, gameObjectList) => {
 	meshList.forEach(mesh => {
-		// Condition 1: gameObject isn't in the game anymore (destroyed, or rollbacked to never exist)
-		// Condition 2: gameObject has a different mesh attached (rollback shenanigans)
+		// gameObject isn't in the game anymore (destroyed, or rollbacked to never exist)
+		// OR, gameObject has a different mesh attached (rollback shenanigans)
 		if (!gameObjectList.includes(mesh.connectedObject) || mesh.connectedObject.connectedMesh !== mesh) {
 			scene.remove(mesh);
 			meshList.splice(meshList.indexOf(mesh), 1);
@@ -614,38 +649,69 @@ let removeUnneededMeshes = (meshList, gameObjectList) => {
 let createMissingOverlays = (overlayType, gameObjectList) => {
 	gameObjectList.forEach(gameObject => {
 		if (gameObject.connectedOverlayObjects[overlayType] === undefined) {
-			createOverlayObject(overlayType, gameObject)
+			createOverlayObject(overlayType, gameObject);
 		}
 	});
 };
 
-let renderFrame = () => {
+let removeUnneededOverlays = (gs) => {
+	let anyRemovals = false;
+	overlayList.forEach(overlayItem => {
+		let connectedObject = overlayItem.connectedObject;
+		let connectedObjectType = connectedObject.type;
+		let gameObjectList;
+		if (connectedObjectType === "player") {
+			gameObjectList = gs.playerList;
+		}
+		// Put the other object list conditionals here...
+		else {
+			// No object list? not sure what can be done
+			return;
+		}
+		// gameObject has a different overlay attached for this type (rollback shenanigans?)
+		if (connectedObject.connectedOverlayObjects[overlayItem.overlayType] !== overlayItem) {
+			overlayItem.overlayElement.remove();
+			overlayItem.toBeRemoved = true;
+		}
+		// gameObject isn't in the game anymore (destroyed, or rollbacked to never exist?)
+		else if (!gameObjectList.includes(connectedObject)) {
+			overlayItem.overlayElement.remove();
+			overlayItem.toBeRemoved = true;
+			connectedObject.connectedOverlayObjects[overlayItem.overlayType] = undefined;
+		}
+	});
+	if (anyRemovals) {
+		overlayList = overlayList.filter(overlayItem => !overlayItem.toBeRemoved);
+	}
+}
+
+let renderFrame = (gs) => {
 	// Create meshes for all objects if they haven't been made yet
 	// (Done here to better support rollback)
-	createMissingMeshes(playerList, createPlayerMesh);
-	createMissingMeshes(applianceList, createApplianceMesh);
-	createMissingMeshes(itemList, createItemMesh);
-	createMissingMeshes(projectileList, createProjectileMesh);
-	createMissingMeshes(effectList, createEffectMesh);
+	createMissingMeshes(gs.playerList, createPlayerMesh);
+	createMissingMeshes(gs.applianceList, createApplianceMesh);
+	createMissingMeshes(gs.itemList, createItemMesh);
+	createMissingMeshes(gs.projectileList, createProjectileMesh);
+	createMissingMeshes(gs.effectList, createEffectMesh);
 	// Remove unused meshes
 	// Check that the connected object is in the game, and that the connected object is still actually connected
-	removeUnneededMeshes(playerMeshList, playerList);
-	removeUnneededMeshes(applianceMeshList, applianceList);
-	removeUnneededMeshes(itemMeshList, itemList);
-	removeUnneededMeshes(projectileMeshList, projectileList);
-	removeUnneededMeshes(effectMeshList, effectList);
+	removeUnneededMeshes(playerMeshList, gs.playerList);
+	removeUnneededMeshes(applianceMeshList, gs.applianceList);
+	removeUnneededMeshes(itemMeshList, gs.itemList);
+	removeUnneededMeshes(projectileMeshList, gs.projectileList);
+	removeUnneededMeshes(effectMeshList, gs.effectList);
 	// Update rendering position, rotation, material, etc for all objects
-	applianceList.forEach(applianceObject => {
+	gs.applianceList.forEach(applianceObject => {
 		let applianceMesh = applianceObject.connectedMesh;
 		applianceMesh.position.x = applianceObject.xPosition;
 		applianceMesh.position.y = applianceObject.yPosition;
 	});
-	playerList.forEach(playerObject => {
+	gs.playerList.forEach(playerObject => {
 		let playerMesh = playerObject.connectedMesh;
 		playerMesh.position.x = playerObject.xPosition;
 		playerMesh.position.y = playerObject.yPosition;
 		playerMesh.rotation.z = playerObject.rotation;
-		applianceList.forEach(applianceObject => {
+		gs.applianceList.forEach(applianceObject => {
 			if (playerObject.xTarget === applianceObject.xPosition &&
 				playerObject.yTarget === applianceObject.yPosition) {
 				applianceObject.connectedMesh.material = tableMaterialHighlight;
@@ -655,7 +721,7 @@ let renderFrame = () => {
 			}
 		});
 	});
-	itemList.forEach(itemObject => {
+	gs.itemList.forEach(itemObject => {
 		let itemMesh = itemObject.connectedMesh;
 		if (itemObject.holder !== undefined) {
 			itemMesh.parent = itemObject.holder.connectedMesh;
@@ -679,13 +745,13 @@ let renderFrame = () => {
 			itemMesh.material = itemMaterial2;
 		}
 	});
-	projectileList.forEach(projectileObject => {
+	gs.projectileList.forEach(projectileObject => {
 		let projectileMesh = projectileObject.connectedMesh;
 		projectileMesh.position.x = projectileObject.xPosition;
 		projectileMesh.position.y = projectileObject.yPosition;
 		projectileMesh.rotation.z = projectileObject.rotation;
 	});
-	effectList.forEach(effectObject => {
+	gs.effectList.forEach(effectObject => {
 		let effectMesh = effectObject.connectedMesh;
 		effectMesh.scale.x *= 0.9;
 		effectMesh.scale.y *= 0.9;
@@ -695,28 +761,10 @@ let renderFrame = () => {
 	// Actually render the 3d scene
 	renderer.render(scene, camera);
 	// Create overlays for all objects that need them
-	createMissingOverlays("player_name", playerList);
-	createMissingOverlays("player_health_bar", playerList);
+	createMissingOverlays("player_name", gs.playerList);
+	createMissingOverlays("player_health_bar", gs.playerList);
 	// Remove unneeded overlays
-	overlayList.forEach(overlayItem => {
-		let connectedObject = overlayItem.connectedObject;
-		let connectedObjectType = connectedObject.type;
-		let gameObjectList;
-		if (connectedObjectType === "player") {
-			gameObjectList = playerList;
-		}
-		// Put the other object list conditionals here...
-		else {
-			// No object list? not sure
-			return;
-		}
-		// Condition 1: gameObject isn't in the game anymore (destroyed, or rollbacked to never exist)
-		// Condition 2: gameObject has a different overlay attached for this type (rollback shenanigans)
-		if (!gameObjectList.includes(connectedObject) || connectedObject.connectedOverlayObjects[overlayItem.overlayType] !== overlayItem) {
-			overlayItem.overlayElement.remove();
-			overlayList.splice(overlayList);
-		}
-	});
+	removeUnneededOverlays(gs);
 	// Update overlays
 	overlayList.forEach(overlayItem => {
 		let overlayElement = overlayItem.overlayElement;
@@ -746,9 +794,9 @@ let collisionTest = (object1, object2) => {
 	return (xDif < 0.5 && yDif < 0.5);
 }
 
-let gameLogic = () => {
+let gameLogic = (gs) => {
 	let anyRemovals = false;
-	playerList.forEach(playerObject => {
+	gs.playerList.forEach(playerObject => {
 		// Player Movement
 
 		let xSpeedChange = 0;
@@ -830,7 +878,7 @@ let gameLogic = () => {
 		// Check for appliances in the way
 		let xPotential = playerObject.xPosition + playerObject.xSpeed;
 		let yPotential = playerObject.yPosition + playerObject.ySpeed;
-		applianceList.forEach(appliance => {
+		gs.applianceList.forEach(appliance => {
 			if (Math.abs(appliance.xPosition - xPotential) <= 1 &&
 				Math.abs(appliance.yPosition - yPotential) <= 1) {
 				let xAppDif = Math.abs(playerObject.xPosition - appliance.xPosition);
@@ -876,7 +924,7 @@ let gameLogic = () => {
 		if (playerObject.grabPressed) {
 			if (playerObject.releasedGrab) {
 				// Grab input: try to grab or put down an item
-				applianceList.forEach((applianceObject) => {
+				gs.applianceList.forEach((applianceObject) => {
 					if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
 						if (playerObject.holdingItem && !applianceObject.holdingItem) {
 							// Put down object
@@ -911,13 +959,13 @@ let gameLogic = () => {
 					else if (abilityType === "ball") {
 						projectileType = "thrownBall";
 					}
-					let projectileObject = createProjectile(projectileType, playerObject.xPosition, playerObject.yPosition, playerObject.rotation, 0.1);
+					let projectileObject = createProjectile(gs, projectileType, playerObject.xPosition, playerObject.yPosition, playerObject.rotation, 0.1);
 					projectileObject.sourcePlayer = playerObject;
 				}
 			}
 			else {
 				// Interact button: can make progress on item
-				applianceList.forEach((applianceObject) => {
+				gs.applianceList.forEach((applianceObject) => {
 					if (applianceObject.holdingItem) {
 						if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
 							let targetItem = applianceObject.heldItem;
@@ -937,18 +985,18 @@ let gameLogic = () => {
 			playerObject.releasedUse = true;
 		}
 	});
-	projectileList.forEach(projectileObject => {
+	gs.projectileList.forEach(projectileObject => {
 		// Apply speed
 		projectileObject.xPosition += Math.cos(projectileObject.rotation) * projectileObject.speed;
 		projectileObject.yPosition += Math.sin(projectileObject.rotation) * projectileObject.speed;
 		// Test collisions against players
-		playerList.forEach(playerObject => {
+		gs.playerList.forEach(playerObject => {
 			if (projectileObject.sourcePlayer !== playerObject && collisionTest(playerObject, projectileObject)) {
 				// console.log("Collision!");
 				// Subtract 1 health from player
 				playerObject.health -= 1;
 				// Create hit effect
-				let effectObject = createEffect("hit", projectileObject.xPosition, projectileObject.yPosition);
+				let effectObject = createEffect(gs, "hit", projectileObject.xPosition, projectileObject.yPosition);
 				// Remove projectile
 				projectileObject.toBeRemoved = true;
 				anyRemovals = true;
@@ -961,7 +1009,7 @@ let gameLogic = () => {
 			anyRemovals = true;
 		}
 	});
-	effectList.forEach(effectObject => {
+	gs.effectList.forEach(effectObject => {
 		effectObject.lifespan -= 1;
 		if (effectObject.lifespan <= 0) {
 			effectObject.toBeRemoved = true;
@@ -970,11 +1018,11 @@ let gameLogic = () => {
 	});
 	// Removal loops
 	if (anyRemovals) {
-		playerList.filter(playerObject => playerObject.toBeRemoved).forEach(playerObject => {removePlayer(playerObject);});
-		projectileList.filter(projectileObject => projectileObject.toBeRemoved).forEach(projectileObject => {removeProjectile(projectileObject);});
-		applianceList.filter(applianceObject => applianceObject.toBeRemoved).forEach(applianceObject => {removeAppliance(applianceObject);});
-		itemList.filter(itemObject => itemObject.toBeRemoved).forEach(itemObject => {removeItem(itemObject);});
-		effectList.filter(effectObject => effectObject.toBeRemoved).forEach(effectObject => {removeEffect(effectObject);});
+		gs.playerList.filter(playerObject => playerObject.toBeRemoved).forEach(playerObject => {removePlayer(gs, playerObject);});
+		gs.projectileList.filter(projectileObject => projectileObject.toBeRemoved).forEach(projectileObject => {removeProjectile(gs, projectileObject);});
+		gs.applianceList.filter(applianceObject => applianceObject.toBeRemoved).forEach(applianceObject => {removeAppliance(gs, applianceObject);});
+		gs.itemList.filter(itemObject => itemObject.toBeRemoved).forEach(itemObject => {removeItem(gs, itemObject);});
+		gs.effectList.filter(effectObject => effectObject.toBeRemoved).forEach(effectObject => {removeEffect(gs, effectObject);});
 	}
 }
 let transferItem = (oldHolder, newHolder, item) => {
@@ -1091,10 +1139,10 @@ let setupNetworkConnection = () => {
 			// new available room/rooms
 			if (messageType === "roomInfo") {
 				if (Array.isArray(messageData)) {
-					messageData.forEach(roomData => {makeRoomOption(roomData.roomName, roomData.roomID)})
+					messageData.forEach(roomData => {makeRoomOption(roomData.roomName, roomData.roomID, roomData.gameStarted)})
 				}
 				else {
-					makeRoomOption(messageData.roomName, messageData.roomID);
+					makeRoomOption(messageData.roomName, messageData.roomID, messageData.gameStarted);
 				}
 			}
 			// room removed
@@ -1116,16 +1164,15 @@ let setupNetworkConnection = () => {
 				goToView("game");
 				backgroundOverGame.classList.remove("active_bg");
 				gameStartPlayerInfo = messageData;
+				currentGameState = createGameState();
+				initializeGameState(currentGameState);
 				gameStartPlayerInfo.forEach(playerData => {
-					let newPlayerObject = createPlayer();
-					newPlayerObject.name = playerData.playerName;
-					newPlayerObject.id = playerData.playerID;
-					newPlayerObject.team = playerData.playerTeam;
+					let newPlayerObject = createPlayer(currentGameState, playerData.playerName, playerData.playerID, playerData.playerTeam);
 				});
 			}
 			// other player input
 			else if (messageType === "playerInput") {
-				var matchingPlayer = playerList.find(player => player.id === messageData.id);
+				var matchingPlayer = currentGameState.playerList.find(player => player.id === messageData.id);
 				matchingPlayer.upPressed = messageData.upPressed;
 				matchingPlayer.rightPressed = messageData.rightPressed;
 				matchingPlayer.downPressed = messageData.downPressed;
@@ -1151,9 +1198,4 @@ let sendData = (type, data) => {
 	}
 	let sendObjStr = JSON.stringify({type: type, data: data});
 	socket.send(sendObjStr);
-	// console.log("send: " + sendObjStr);
 }
-
-// join a room
-// start game
-// gameplay inputs

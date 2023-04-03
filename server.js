@@ -4,7 +4,7 @@ wss.on("connection", (ws) => {
 	console.log("got connection");
 	let player = new Player(ws);
 	let currentRoom;
-	roomList.forEach(room => sendData(player.ws, "roomInfo", {roomName: room.name, roomID: room.id}))
+	roomList.forEach(room => sendData(player.ws, "roomInfo", {roomName: room.name, roomID: room.id, gameStarted: room.gameStarted}))
 	ws.on("message", (message) => {
 		// console.log("got message: " + message);
 		let messageParse = JSON.parse(message);
@@ -15,7 +15,7 @@ wss.on("connection", (ws) => {
 			player.name = messageData.playerName;
 			let createdRoom = new Room(messageData.roomName);
 			createdRoom.AddPlayer(player);
-			let roomData = {roomName: createdRoom.name, roomID: createdRoom.id};
+			let roomData = {roomName: createdRoom.name, roomID: createdRoom.id, gameStarted: createdRoom.gameStarted};
 			playerList.forEach(player => sendData(player.ws, "roomInfo", roomData));
 			currentRoom = createdRoom;
 			console.log(`player ${player.id} made room ${currentRoom.id}`);
@@ -58,6 +58,10 @@ wss.on("connection", (ws) => {
 			}
 			let finalPlayerSetup = currentRoom.connectedPlayers.map((player) => {return {playerName: player.name, playerID: player.id, playerTeam: player.team};})
 			currentRoom.connectedPlayers.forEach(player => sendData(player.ws, "gameStarting", finalPlayerSetup));
+			currentRoom.gameStarted = true;
+			let roomData = {roomName: currentRoom.name, roomID: currentRoom.id, gameStarted: currentRoom.gameStarted};
+			playerList.forEach(player => sendData(player.ws, "roomInfo", roomData));
+			console.log(`Room #${currentRoom.id} (${currentRoom.name}) is starting a game`);
 		}
 		// gameplay inputs
 		else if (messageType === "playerInput") {
@@ -107,6 +111,7 @@ function Room (roomName) {
 	roomIDCounter ++;
 	this.name = roomName;
 	this.connectedPlayers = [];
+	this.gameStarted = false;
 	roomList.push(this);
 }
 Room.prototype.AddPlayer = function (player) {
