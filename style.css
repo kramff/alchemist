@@ -89,6 +89,10 @@ p {
 	flex-direction: row;
 }
 
+.box.controls_box {
+	font-size: 12px;
+}
+
 .room_list {
 	min-width: 200px;
 	min-height: 200px;

@@ -121,6 +121,11 @@ let fixReferences = (fixObjectList, referenceKey, oldReferenceList, newReference
 
 let currentGameState;
 let gameStateHistory = [];
+let gameStarted = false;
+let currentFrameCount = 0;
+let playerInputLog = [];
+let newInputReceived = false;
+let latestFullInputFrame = 0;
 
 let playerMeshList = [];
 let applianceMeshList = [];
@@ -462,14 +467,10 @@ let init = () => {
 	addEventListener("keydown", keyDownFunction);
 	addEventListener("keyup", keyUpFunction);
 	addEventListener("resize", resizeFunction);
-
-	console.log("starting game loop");
-	lastTime = Date.now();
-	gameLoop();
 }
 
 let initializeGameState = (gs) => {
-	var listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
+	let listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
 
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance(gs, "table", i * 2 - 3, i - 2);
@@ -584,46 +585,104 @@ let createOverlayObject = (overlayType, gameObject) => {
 	return newOverlayObject;
 }
 
+let compareInputFrameCount = (a, b) => {
+	return a.frameCount - b.frameCount;
+}
+
+// Rollback function
+let resimulateGame = () => {
+	let currentResimulatedState = gameStateHistory[latestFullInputFrame];
+	// Only keep inputs as long as they will be needed
+	playerInputLog = playerInputLog.filter(input => input.frameCount >= latestFullInputFrame);
+	// Sort inputs by frame number
+	playerInputLog.sort(compareInputFrameCount);
+	// Keep track of latest input from each player
+	let latestPlayerInputs = currentResimulatedState.playerList.map(player => {return {id: player.id, frameCount: latestFullInputFrame};});
+	// Run the game back up to the current frame but with inputs from the input log
+	let tempFrameCount = latestFullInputFrame;
+	let inputLogIterator = 0;
+	let nextPlayerInput = playerInputLog[inputLogIterator];
+	while (tempFrameCount < currentFrameCount) {
+		// Apply all (known) player inputs for this frame
+		while (nextPlayerInput !== undefined && nextPlayerInput?.frameCount === tempFrameCount) {
+			let matchingPlayer = currentResimulatedState.playerList.find(player => player.id === nextPlayerInput.id);
+			if (matchingPlayer !== undefined) {
+				matchingPlayer.upPressed = nextPlayerInput.upPressed;
+				matchingPlayer.rightPressed = nextPlayerInput.rightPressed;
+				matchingPlayer.downPressed = nextPlayerInput.downPressed;
+				matchingPlayer.leftPressed = nextPlayerInput.leftPressed;
+				matchingPlayer.grabPressed = nextPlayerInput.grabPressed;
+				matchingPlayer.usePressed = nextPlayerInput.usePressed;
+				matchingPlayer.anchorPressed = nextPlayerInput.anchorPressed;
+				latestPlayerInputs.find(playerInput => playerInput.id === matchingPlayer.id).frameCount = tempFrameCount;
+			}
+			// Get next player input in the log
+			inputLogIterator += 1;
+			nextPlayerInput = playerInputLog[inputLogIterator];
+		}
+		// Overwrite historical states
+		gameStateHistory[tempFrameCount] = copyGameState(currentResimulatedState);
+		// Run game logic
+		gameLogic(currentResimulatedState);
+		tempFrameCount += 1;
+		currentResimulatedState.frameCount = tempFrameCount;
+	}
+	// Caught up to current frame, replace game state
+	currentGameState = currentResimulatedState;
+	// Update latest full input frame
+	latestPlayerInputs.sort(compareInputFrameCount);
+	latestFullInputFrame = latestPlayerInputs[0]?.frameCount || latestFullInputFrame;
+}
+
 let lastTime;
 let timeAccumulator = 0;
 let frameTime = 1000/60;
 let gameLoop = () => {
-	let newTime = Date.now();
-	let deltaTime = newTime - lastTime
-	lastTime = newTime
-	timeAccumulator += deltaTime;
-	if (timeAccumulator > frameTime) {
-		if (inputChanged && currentView === "game") {
-			sendData("playerInput", {
-				upPressed: wDown,
-				rightPressed: dDown,
-				downPressed: sDown,
-				leftPressed: aDown,
-				grabPressed: pDown,
-				usePressed: oDown,
-				anchorPressed: spaceDown,
-			});
+	if (gameStarted && currentGameState !== undefined) {
+
+		// Do rollback here?
+		if (newInputReceived) {
+			newInputReceived = false;
+			resimulateGame();
 		}
-		inputChanged = false;
-		let limit = 10;
-		while (timeAccumulator > frameTime && limit > 0) {
-			timeAccumulator -= frameTime;
-			limit -= 1;
-			if (currentGameState) {
+
+
+		let newTime = Date.now();
+		let deltaTime = newTime - lastTime;
+		lastTime = newTime;
+		timeAccumulator += deltaTime;
+		if (timeAccumulator > frameTime) {
+			// Run logic to simulate frames of the game
+			let limit = 10;
+			while (timeAccumulator > frameTime && limit > 0) {
+				timeAccumulator -= frameTime;
+				limit -= 1;
+				gameStateHistory.push(copyGameState(currentGameState));
 				gameLogic(currentGameState);
+				currentFrameCount += 1;
+				currentGameState.frameCount = currentFrameCount;
 			}
+			if (limit === 0) {
+				timeAccumulator = 0;
+			}
+			// Send inputs to server
+			if (inputChanged && currentView === "game") {
+				sendData("playerInput", {
+					upPressed: wDown,
+					rightPressed: dDown,
+					downPressed: sDown,
+					leftPressed: aDown,
+					grabPressed: pDown,
+					usePressed: oDown,
+					anchorPressed: spaceDown,
+					frameCount: currentFrameCount,
+				});
+			}
+			inputChanged = false;
 		}
-		if (limit === 0) {
-			timeAccumulator = 0;
-		}
-	}
-	if (currentGameState) {
 		renderFrame(currentGameState);
 	}
 	requestAnimationFrame(gameLoop);
-	if (currentGameState) {
-		gameStateHistory.push(copyGameState(currentGameState));
-	}
 }
 
 let createMissingMeshes = (gameObjectList, createMeshFunc) => {
@@ -777,11 +836,11 @@ let renderFrame = (gs) => {
 			overlayItem.yLast = coords.y;
 		}
 		if (overlayItem.overlayType === "player_health_bar") {
-			var displayedHealth = overlayElement.style.getPropertyValue("--health");
-			var displayedMaxHealth = overlayElement.style.getPropertyValue("--max-health");
+			let displayedHealth = overlayElement.style.getPropertyValue("--health");
+			let displayedMaxHealth = overlayElement.style.getPropertyValue("--max-health");
 			// Using != because the dom saves these as strings instead of numbers
 			if (overlayItem.connectedObject.health != displayedHealth || overlayItem.connectedObject.maxHealth != displayedMaxHealth) {
-				overlayElement.style.setProperty("--health", overlayItem.connectedObject.health);
+				overlayElement.style.setProperty("--health", Math.max(0, overlayItem.connectedObject.health));
 				overlayElement.style.setProperty("--max-health", overlayItem.connectedObject.maxHealth);
 			}
 		}
@@ -947,7 +1006,6 @@ let gameLogic = (gs) => {
 			if (playerObject.holdingItem && playerObject.heldItem.hasAbility) {
 				// Use ability
 				if (playerObject.releasedUse) {
-					// console.log("Used item ability: " + playerObject.heldItem.subType);
 					let abilityType = playerObject.heldItem.subType;
 					let projectileType;
 					if (abilityType === "gun") {
@@ -992,7 +1050,6 @@ let gameLogic = (gs) => {
 		// Test collisions against players
 		gs.playerList.forEach(playerObject => {
 			if (projectileObject.sourcePlayer !== playerObject && collisionTest(playerObject, projectileObject)) {
-				// console.log("Collision!");
 				// Subtract 1 health from player
 				playerObject.health -= 1;
 				// Create hit effect
@@ -1133,7 +1190,6 @@ let setupNetworkConnection = () => {
 		}
 		socket.onmessage = (message) => {
 			let messageParse = JSON.parse(message.data);
-			// console.log("got message: " + message.data);
 			let messageType = messageParse.type;
 			let messageData = messageParse.data;
 			// new available room/rooms
@@ -1164,22 +1220,28 @@ let setupNetworkConnection = () => {
 				goToView("game");
 				backgroundOverGame.classList.remove("active_bg");
 				gameStartPlayerInfo = messageData;
+				gameStarted = true;
 				currentGameState = createGameState();
 				initializeGameState(currentGameState);
 				gameStartPlayerInfo.forEach(playerData => {
 					let newPlayerObject = createPlayer(currentGameState, playerData.playerName, playerData.playerID, playerData.playerTeam);
 				});
+				console.log("starting game loop");
+				lastTime = Date.now();
+				gameLoop();
 			}
 			// other player input
 			else if (messageType === "playerInput") {
-				var matchingPlayer = currentGameState.playerList.find(player => player.id === messageData.id);
-				matchingPlayer.upPressed = messageData.upPressed;
-				matchingPlayer.rightPressed = messageData.rightPressed;
-				matchingPlayer.downPressed = messageData.downPressed;
-				matchingPlayer.leftPressed = messageData.leftPressed;
-				matchingPlayer.grabPressed = messageData.grabPressed;
-				matchingPlayer.usePressed = messageData.usePressed;
-				matchingPlayer.anchorPressed = messageData.anchorPressed;
+				// let matchingPlayer = currentGameState.playerList.find(player => player.id === messageData.id);
+				// matchingPlayer.upPressed = messageData.upPressed;
+				// matchingPlayer.rightPressed = messageData.rightPressed;
+				// matchingPlayer.downPressed = messageData.downPressed;
+				// matchingPlayer.leftPressed = messageData.leftPressed;
+				// matchingPlayer.grabPressed = messageData.grabPressed;
+				// matchingPlayer.usePressed = messageData.usePressed;
+				// matchingPlayer.anchorPressed = messageData.anchorPressed;
+				playerInputLog.push(messageData);
+				newInputReceived = true;
 			}
 			// other player quitting
 			else if (messageType === "playerQuit") {
