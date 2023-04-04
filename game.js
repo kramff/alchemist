@@ -63,6 +63,7 @@ let createGameState = () => {
 
 let copyGameState = (gs) => {
 	let gsNew = createGameState();
+	gsNew.frameCount = gs.frameCount;
 	copyGameObjectList(gsNew, gs.playerList, gsNew.playerList, createPlayer);
 	copyGameObjectList(gsNew, gs.applianceList, gsNew.applianceList, createAppliance);
 	copyGameObjectList(gsNew, gs.itemList, gsNew.itemList, createItem);
@@ -602,30 +603,53 @@ let resimulateGame = () => {
 	let tempFrameCount = latestFullInputFrame;
 	let inputLogIterator = 0;
 	let nextPlayerInput = playerInputLog[inputLogIterator];
+	let anyChangedInputs = false;
 	while (tempFrameCount < currentFrameCount) {
 		// Apply all (known) player inputs for this frame
 		while (nextPlayerInput !== undefined && nextPlayerInput?.frameCount === tempFrameCount) {
 			let matchingPlayer = currentResimulatedState.playerList.find(player => player.id === nextPlayerInput.id);
 			if (matchingPlayer !== undefined) {
-				matchingPlayer.upPressed = nextPlayerInput.upPressed;
-				matchingPlayer.rightPressed = nextPlayerInput.rightPressed;
-				matchingPlayer.downPressed = nextPlayerInput.downPressed;
-				matchingPlayer.leftPressed = nextPlayerInput.leftPressed;
-				matchingPlayer.grabPressed = nextPlayerInput.grabPressed;
-				matchingPlayer.usePressed = nextPlayerInput.usePressed;
-				matchingPlayer.anchorPressed = nextPlayerInput.anchorPressed;
+				// Check if any inputs are different than expected
+				if (
+					matchingPlayer.upPressed !== nextPlayerInput.upPressed ||
+					matchingPlayer.rightPressed !== nextPlayerInput.rightPressed ||
+					matchingPlayer.downPressed !== nextPlayerInput.downPressed ||
+					matchingPlayer.leftPressed !== nextPlayerInput.leftPressed ||
+					matchingPlayer.grabPressed !== nextPlayerInput.grabPressed ||
+					matchingPlayer.usePressed !== nextPlayerInput.usePressed ||
+					matchingPlayer.anchorPressed !== nextPlayerInput.anchorPressed
+				) {
+					matchingPlayer.upPressed = nextPlayerInput.upPressed;
+					matchingPlayer.rightPressed = nextPlayerInput.rightPressed;
+					matchingPlayer.downPressed = nextPlayerInput.downPressed;
+					matchingPlayer.leftPressed = nextPlayerInput.leftPressed;
+					matchingPlayer.grabPressed = nextPlayerInput.grabPressed;
+					matchingPlayer.usePressed = nextPlayerInput.usePressed;
+					matchingPlayer.anchorPressed = nextPlayerInput.anchorPressed;
+					anyChangedInputs = true;
+				}
 				latestPlayerInputs.find(playerInput => playerInput.id === matchingPlayer.id).frameCount = tempFrameCount;
 			}
 			// Get next player input in the log
 			inputLogIterator += 1;
 			nextPlayerInput = playerInputLog[inputLogIterator];
 		}
-		// Overwrite historical states
-		gameStateHistory[tempFrameCount] = copyGameState(currentResimulatedState);
-		// Run game logic
-		gameLogic(currentResimulatedState);
-		tempFrameCount += 1;
-		currentResimulatedState.frameCount = tempFrameCount;
+		// If any inputs (or any previous inputs) are different than what the historical game state had, resimulate it
+		if (anyChangedInputs) {
+			// Overwrite historical states
+			gameStateHistory[tempFrameCount] = copyGameState(currentResimulatedState);
+			// Run game logic
+			gameLogic(currentResimulatedState);
+			tempFrameCount += 1;
+			currentResimulatedState.frameCount = tempFrameCount;
+		}
+		else {
+			// Just use existing historical state
+			tempFrameCount += 1;
+			if (gameStateHistory[tempFrameCount] !== undefined) {
+				currentResimulatedState = gameStateHistory[tempFrameCount];
+			}
+		}
 	}
 	// Caught up to current frame, replace game state
 	currentGameState = currentResimulatedState;
@@ -675,7 +699,8 @@ let gameLoop = () => {
 					grabPressed: pDown,
 					usePressed: oDown,
 					anchorPressed: spaceDown,
-					frameCount: currentFrameCount,
+					frameCount: currentFrameCount - 1,
+					// This should not be - 1, and instead playerInputs should be saved and applied to their correct frame
 				});
 			}
 			inputChanged = false;
