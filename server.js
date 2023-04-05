@@ -1,9 +1,12 @@
+console.log("Starting alchemy game server");
+
 const WebSocket = require("ws");
 const wss = new WebSocket.Server({port: 5000});
 wss.on("connection", (ws) => {
 	console.log("got connection");
 	let player = new Player(ws);
 	let currentRoom;
+	sendData(player.ws, "localPlayerID", player.id);
 	roomList.forEach(room => sendData(player.ws, "roomInfo", {roomName: room.name, roomID: room.id, gameStarted: room.gameStarted}))
 	ws.on("message", (message) => {
 		// console.log("got message: " + message);
@@ -71,7 +74,11 @@ wss.on("connection", (ws) => {
 			}
 			//console.log("player sent inputs");
 			messageData.id = player.id;
-			currentRoom.connectedPlayers.forEach(otherPlayer => sendData(otherPlayer.ws, "playerInput", messageData));
+			currentRoom.connectedPlayers.forEach(otherPlayer => {
+				if (otherPlayer !== player) {
+					sendData(otherPlayer.ws, "playerInput", messageData);
+				}
+			});
 		}
 	});
 	ws.on("close", () => {
@@ -141,3 +148,8 @@ Room.prototype.RemoveSelf = function () {
 	playerList.forEach(player => sendData(player.ws, "roomRemoved", this.id));
 	roomList.splice(roomList.indexOf(this), 1);
 }
+
+process.on('SIGINT', function() {
+	console.log("Stopping alchemy game server");
+	process.exit();
+});

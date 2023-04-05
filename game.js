@@ -125,8 +125,9 @@ let gameStateHistory = [];
 let gameStarted = false;
 let currentFrameCount = 0;
 let playerInputLog = [];
-let newInputReceived = false;
+let rollbackInputReceived = false;
 let latestFullInputFrame = 0;
+let localPlayerID;
 
 let playerMeshList = [];
 let applianceMeshList = [];
@@ -473,11 +474,11 @@ let init = () => {
 let initializeGameState = (gs) => {
 	let listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
 
-	for (let i = 0; i < 6; i++) {
-		let newTable = createAppliance(gs, "table", i * 2 - 3, i - 2);
-		let newItem = createItem(gs, listOfItems[i]);
-		transferItem(undefined, newTable, newItem);
-	}
+	// for (let i = 0; i < 6; i++) {
+	// 	let newTable = createAppliance(gs, "table", i * 2 - 3, i - 2);
+	// 	let newItem = createItem(gs, listOfItems[i]);
+	// 	transferItem(undefined, newTable, newItem);
+	// }
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance(gs, "table", i - 3, -4);
 	}
@@ -590,6 +591,29 @@ let compareInputFrameCount = (a, b) => {
 	return a.frameCount - b.frameCount;
 }
 
+// Apply input to a player object, and return true if there were any changes (and false if not)
+let applyInputToPlayer = (playerObject, playerInput) => {
+	if (
+		playerObject.upPressed !== playerInput.upPressed ||
+		playerObject.rightPressed !== playerInput.rightPressed ||
+		playerObject.downPressed !== playerInput.downPressed ||
+		playerObject.leftPressed !== playerInput.leftPressed ||
+		playerObject.grabPressed !== playerInput.grabPressed ||
+		playerObject.usePressed !== playerInput.usePressed ||
+		playerObject.anchorPressed !== playerInput.anchorPressed
+	) {
+		playerObject.upPressed = playerInput.upPressed;
+		playerObject.rightPressed = playerInput.rightPressed;
+		playerObject.downPressed = playerInput.downPressed;
+		playerObject.leftPressed = playerInput.leftPressed;
+		playerObject.grabPressed = playerInput.grabPressed;
+		playerObject.usePressed = playerInput.usePressed;
+		playerObject.anchorPressed = playerInput.anchorPressed;
+		return true;
+	}
+	return false;
+}
+
 // Rollback function
 let resimulateGame = () => {
 	let currentResimulatedState = gameStateHistory[latestFullInputFrame];
@@ -610,24 +634,7 @@ let resimulateGame = () => {
 			let matchingPlayer = currentResimulatedState.playerList.find(player => player.id === nextPlayerInput.id);
 			if (matchingPlayer !== undefined) {
 				// Check if any inputs are different than expected
-				if (
-					matchingPlayer.upPressed !== nextPlayerInput.upPressed ||
-					matchingPlayer.rightPressed !== nextPlayerInput.rightPressed ||
-					matchingPlayer.downPressed !== nextPlayerInput.downPressed ||
-					matchingPlayer.leftPressed !== nextPlayerInput.leftPressed ||
-					matchingPlayer.grabPressed !== nextPlayerInput.grabPressed ||
-					matchingPlayer.usePressed !== nextPlayerInput.usePressed ||
-					matchingPlayer.anchorPressed !== nextPlayerInput.anchorPressed
-				) {
-					matchingPlayer.upPressed = nextPlayerInput.upPressed;
-					matchingPlayer.rightPressed = nextPlayerInput.rightPressed;
-					matchingPlayer.downPressed = nextPlayerInput.downPressed;
-					matchingPlayer.leftPressed = nextPlayerInput.leftPressed;
-					matchingPlayer.grabPressed = nextPlayerInput.grabPressed;
-					matchingPlayer.usePressed = nextPlayerInput.usePressed;
-					matchingPlayer.anchorPressed = nextPlayerInput.anchorPressed;
-					anyChangedInputs = true;
-				}
+				let anyChangedInputs = applyInputToPlayer(matchingPlayer, nextPlayerInput);
 				latestPlayerInputs.find(playerInput => playerInput.id === matchingPlayer.id).frameCount = tempFrameCount;
 			}
 			// Get next player input in the log
@@ -664,12 +671,11 @@ let frameTime = 1000/60;
 let gameLoop = () => {
 	if (gameStarted && currentGameState !== undefined) {
 
-		// Do rollback here?
-		if (newInputReceived) {
-			newInputReceived = false;
+		// Do rollback simulations if needed
+		if (rollbackInputReceived) {
+			rollbackInputReceived = false;
 			resimulateGame();
 		}
-
 
 		let newTime = Date.now();
 		let deltaTime = newTime - lastTime;
@@ -682,8 +688,14 @@ let gameLoop = () => {
 				timeAccumulator -= frameTime;
 				limit -= 1;
 				gameStateHistory.push(copyGameState(currentGameState));
-				gameLogic(currentGameState);
 				currentFrameCount += 1;
+				// Apply any playerinputs for this frame
+				let playerInputsToApply = playerInputLog.filter(playerInput => playerInput.frameCount === currentFrameCount);
+				playerInputsToApply.forEach(playerInput => {
+					let matchingPlayer = currentGameState.playerList.find(player => player.id === playerInput.id);
+					applyInputToPlayer(matchingPlayer, playerInput);
+				});
+				gameLogic(currentGameState);
 				currentGameState.frameCount = currentFrameCount;
 			}
 			if (limit === 0) {
@@ -691,7 +703,7 @@ let gameLoop = () => {
 			}
 			// Send inputs to server
 			if (inputChanged && currentView === "game") {
-				sendData("playerInput", {
+				let inputData = {
 					upPressed: wDown,
 					rightPressed: dDown,
 					downPressed: sDown,
@@ -699,9 +711,13 @@ let gameLoop = () => {
 					grabPressed: pDown,
 					usePressed: oDown,
 					anchorPressed: spaceDown,
-					frameCount: currentFrameCount - 1,
-					// This should not be - 1, and instead playerInputs should be saved and applied to their correct frame
-				});
+					// Put input delay here?
+					frameCount: currentFrameCount + 10,
+				};
+				sendData("playerInput", inputData);
+				// Also put this into the local copy of the input log (the server will not send it to us)
+				inputData.id = localPlayerID;
+				playerInputLog.push(inputData);
 			}
 			inputChanged = false;
 		}
@@ -837,8 +853,8 @@ let renderFrame = (gs) => {
 	});
 	gs.effectList.forEach(effectObject => {
 		let effectMesh = effectObject.connectedMesh;
-		effectMesh.scale.x *= 0.9;
-		effectMesh.scale.y *= 0.9;
+		effectMesh.scale.x = effectObject.lifespan / 500;
+		effectMesh.scale.y = effectObject.lifespan / 500;
 		effectMesh.position.x = effectObject.xPosition;
 		effectMesh.position.y = effectObject.yPosition;
 	});
@@ -1218,7 +1234,10 @@ let setupNetworkConnection = () => {
 			let messageType = messageParse.type;
 			let messageData = messageParse.data;
 			// new available room/rooms
-			if (messageType === "roomInfo") {
+			if (messageType === "localPlayerID") {
+				localPlayerID = messageData;
+			}
+			else if (messageType === "roomInfo") {
 				if (Array.isArray(messageData)) {
 					messageData.forEach(roomData => {makeRoomOption(roomData.roomName, roomData.roomID, roomData.gameStarted)})
 				}
@@ -1257,16 +1276,10 @@ let setupNetworkConnection = () => {
 			}
 			// other player input
 			else if (messageType === "playerInput") {
-				// let matchingPlayer = currentGameState.playerList.find(player => player.id === messageData.id);
-				// matchingPlayer.upPressed = messageData.upPressed;
-				// matchingPlayer.rightPressed = messageData.rightPressed;
-				// matchingPlayer.downPressed = messageData.downPressed;
-				// matchingPlayer.leftPressed = messageData.leftPressed;
-				// matchingPlayer.grabPressed = messageData.grabPressed;
-				// matchingPlayer.usePressed = messageData.usePressed;
-				// matchingPlayer.anchorPressed = messageData.anchorPressed;
 				playerInputLog.push(messageData);
-				newInputReceived = true;
+				// If the input was meant for an earlier frame than what we're currently on, prepare to do a rollback simulation
+				if (messageData.frameCount <= currentFrameCount)
+				rollbackInputReceived = true;
 			}
 			// other player quitting
 			else if (messageType === "playerQuit") {
