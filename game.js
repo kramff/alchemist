@@ -1,6 +1,11 @@
 "use strict";
 console.log("alchemist game");
 
+let showDebug = true;
+let currentFrameSpan;
+let rollbacksSpan;
+let resimulatedFramesSpan;
+
 // Main render stuff
 let scene;
 let camera;
@@ -369,6 +374,11 @@ let overlayList = [];
 
 let init = () => {
 
+
+	currentFrameSpan = document.getElementById("current_frame");
+	rollbacksSpan = document.getElementById("rollbacks");
+	resimulatedFramesSpan = document.getElementById("resimulated_frames");
+
 	backgroundOverGame = document.getElementsByClassName("background_over_game").item(0);
 	roomListElement = document.getElementById("room_list");
 	teamBox1 = document.getElementById("team_1");
@@ -474,11 +484,11 @@ let init = () => {
 let initializeGameState = (gs) => {
 	let listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
 
-	// for (let i = 0; i < 6; i++) {
-	// 	let newTable = createAppliance(gs, "table", i * 2 - 3, i - 2);
-	// 	let newItem = createItem(gs, listOfItems[i]);
-	// 	transferItem(undefined, newTable, newItem);
-	// }
+	for (let i = 0; i < 6; i++) {
+		let newTable = createAppliance(gs, "table", i * 2 - 3, i - 2);
+		let newItem = createItem(gs, listOfItems[i]);
+		transferItem(undefined, newTable, newItem);
+	}
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance(gs, "table", i - 3, -4);
 	}
@@ -614,6 +624,10 @@ let applyInputToPlayer = (playerObject, playerInput) => {
 	return false;
 }
 
+// Stats for debug info
+let numRollbacks = 0;
+let numResimulatedFrames = 0;
+
 // Rollback function
 let resimulateGame = () => {
 	let currentResimulatedState = gameStateHistory[latestFullInputFrame];
@@ -634,7 +648,8 @@ let resimulateGame = () => {
 			let matchingPlayer = currentResimulatedState.playerList.find(player => player.id === nextPlayerInput.id);
 			if (matchingPlayer !== undefined) {
 				// Check if any inputs are different than expected
-				let anyChangedInputs = applyInputToPlayer(matchingPlayer, nextPlayerInput);
+				let applyResult = applyInputToPlayer(matchingPlayer, nextPlayerInput)
+				anyChangedInputs = anyChangedInputs || applyResult;
 				latestPlayerInputs.find(playerInput => playerInput.id === matchingPlayer.id).frameCount = tempFrameCount;
 			}
 			// Get next player input in the log
@@ -647,6 +662,7 @@ let resimulateGame = () => {
 			gameStateHistory[tempFrameCount] = copyGameState(currentResimulatedState);
 			// Run game logic
 			gameLogic(currentResimulatedState);
+			numResimulatedFrames += 1;
 			tempFrameCount += 1;
 			currentResimulatedState.frameCount = tempFrameCount;
 		}
@@ -658,11 +674,15 @@ let resimulateGame = () => {
 			}
 		}
 	}
-	// Caught up to current frame, replace game state
-	currentGameState = currentResimulatedState;
-	// Update latest full input frame
-	latestPlayerInputs.sort(compareInputFrameCount);
-	latestFullInputFrame = latestPlayerInputs[0]?.frameCount || latestFullInputFrame;
+	// Only change anything if any inputs were different than expected
+	if (anyChangedInputs) {
+		// Caught up to current frame, replace game state
+		currentGameState = currentResimulatedState;
+		// Update latest full input frame
+		latestPlayerInputs.sort(compareInputFrameCount);
+		latestFullInputFrame = latestPlayerInputs[0]?.frameCount || latestFullInputFrame;
+		numRollbacks += 1;
+	}
 }
 
 let lastTime;
@@ -712,12 +732,17 @@ let gameLoop = () => {
 					usePressed: oDown,
 					anchorPressed: spaceDown,
 					// Put input delay here?
-					frameCount: currentFrameCount + 10,
+					frameCount: currentFrameCount + 1,
 				};
 				sendData("playerInput", inputData);
 				// Also put this into the local copy of the input log (the server will not send it to us)
 				inputData.id = localPlayerID;
 				playerInputLog.push(inputData);
+				// Ok this is mostly for testing rollback
+				// but if the input frame is set to be before the current frame (or the current frame), do a rollback
+				if (inputData.frameCount <= currentFrameCount) {
+					rollbackInputReceived = true;
+				}
 			}
 			inputChanged = false;
 		}
@@ -886,6 +911,11 @@ let renderFrame = (gs) => {
 			}
 		}
 	});
+	if (showDebug) {
+		currentFrameSpan.textContent = currentFrameCount;
+		rollbacksSpan.textContent = numRollbacks;
+		resimulatedFramesSpan = numResimulatedFrames;
+	}
 }
 
 let collisionTest = (object1, object2) => {
@@ -1277,9 +1307,10 @@ let setupNetworkConnection = () => {
 			// other player input
 			else if (messageType === "playerInput") {
 				playerInputLog.push(messageData);
-				// If the input was meant for an earlier frame than what we're currently on, prepare to do a rollback simulation
-				if (messageData.frameCount <= currentFrameCount)
-				rollbackInputReceived = true;
+				// If the input was meant for an earlier frame (or this frame) than what we're currently on, prepare to do a rollback simulation
+				if (messageData.frameCount <= currentFrameCount) {
+					rollbackInputReceived = true;
+				}
 			}
 			// other player quitting
 			else if (messageType === "playerQuit") {

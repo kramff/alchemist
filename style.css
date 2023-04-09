@@ -4,6 +4,7 @@ body {
 	font-size: 22px;
 	color: #f0f0f0;
 	font-family: sans-serif;
+	overflow: hidden;
 }
 div {
 	position: relative;
@@ -66,6 +67,7 @@ p {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	overflow: auto;
 }
 
 .page:not(.active_view) {
@@ -178,5 +180,19 @@ p {
 	width: 100%;
 	height: 100%;
 	pointer-events: none;
+}
+
+.debug_ui {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.debug {
+	color: white;
+	font-size: 10px;
+	pointer-events: auto;
 }
 
