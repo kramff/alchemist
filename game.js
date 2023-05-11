@@ -6,6 +6,8 @@ let currentFrameSpan;
 let rollbacksSpan;
 let resimulatedFramesSpan;
 
+let inputDelay = 3;
+
 // Main render stuff
 let scene;
 let camera;
@@ -133,6 +135,7 @@ let playerInputLog = [];
 let rollbackInputReceived = false;
 let latestFullInputFrame = 0;
 let localPlayerID;
+let lastInputSentFrame = 0;
 
 let playerMeshList = [];
 let applianceMeshList = [];
@@ -722,7 +725,9 @@ let gameLoop = () => {
 				timeAccumulator = 0;
 			}
 			// Send inputs to server
-			if (inputChanged && currentView === "game") {
+			if (currentView === "game" && (inputChanged || (lastInputSentFrame + 120 < currentFrameCount))) {
+				// Case 1: input has changed
+				// Case 2: too long since last time input was sent to server
 				let inputData = {
 					upPressed: wDown,
 					rightPressed: dDown,
@@ -732,7 +737,7 @@ let gameLoop = () => {
 					usePressed: oDown,
 					anchorPressed: spaceDown,
 					// Put input delay here?
-					frameCount: currentFrameCount + 1,
+					frameCount: currentFrameCount + inputDelay,
 				};
 				sendData("playerInput", inputData);
 				// Also put this into the local copy of the input log (the server will not send it to us)
@@ -740,9 +745,11 @@ let gameLoop = () => {
 				playerInputLog.push(inputData);
 				// Ok this is mostly for testing rollback
 				// but if the input frame is set to be before the current frame (or the current frame), do a rollback
+				// (Would only happen if there is an artifically negative inputDelay
 				if (inputData.frameCount <= currentFrameCount) {
 					rollbackInputReceived = true;
 				}
+				lastInputSentFrame = currentFrameCount;
 			}
 			inputChanged = false;
 		}
@@ -1311,10 +1318,12 @@ let setupNetworkConnection = () => {
 				if (messageData.frameCount <= currentFrameCount) {
 					rollbackInputReceived = true;
 				}
+				// Calculate remoteFrameLag and localFrameLag
+				let remoteFrameLag = (messageData.frameCount - inputDelay) - currentFrameCount;
+				let localFrameLag = currentFrameCount - (messageData.frameCount - inputDelay);
 			}
 			// other player quitting
 			else if (messageType === "playerQuit") {
-				
 			}
 		}
 	}
