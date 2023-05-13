@@ -5,6 +5,7 @@ let showDebug = true;
 let currentFrameSpan;
 let rollbacksSpan;
 let resimulatedFramesSpan;
+let largestRemoteLagSpan;
 
 let inputDelay = 3;
 
@@ -136,6 +137,7 @@ let rollbackInputReceived = false;
 let latestFullInputFrame = 0;
 let localPlayerID;
 let lastInputSentFrame = 0;
+let playerFrameAdvantages = [];
 
 let playerMeshList = [];
 let applianceMeshList = [];
@@ -381,6 +383,7 @@ let init = () => {
 	currentFrameSpan = document.getElementById("current_frame");
 	rollbacksSpan = document.getElementById("rollbacks");
 	resimulatedFramesSpan = document.getElementById("resimulated_frames");
+	largestRemoteLagSpan = document.getElementById("largest_remote_lag");
 
 	backgroundOverGame = document.getElementsByClassName("background_over_game").item(0);
 	roomListElement = document.getElementById("room_list");
@@ -630,6 +633,7 @@ let applyInputToPlayer = (playerObject, playerInput) => {
 // Stats for debug info
 let numRollbacks = 0;
 let numResimulatedFrames = 0;
+let numLargestRemoteLag = 0;
 
 // Rollback function
 let resimulateGame = () => {
@@ -699,6 +703,9 @@ let gameLoop = () => {
 			rollbackInputReceived = false;
 			resimulateGame();
 		}
+
+		// Determine if a slight delay or skip forward is needed
+		numLargestRemoteLag = Math.max(...playerFrameAdvantages.map(entry => entry.frameAdvantage));
 
 		let newTime = Date.now();
 		let deltaTime = newTime - lastTime;
@@ -921,7 +928,8 @@ let renderFrame = (gs) => {
 	if (showDebug) {
 		currentFrameSpan.textContent = currentFrameCount;
 		rollbacksSpan.textContent = numRollbacks;
-		resimulatedFramesSpan = numResimulatedFrames;
+		resimulatedFramesSpan.textContent = numResimulatedFrames;
+		largestRemoteLagSpan.textContent = numLargestRemoteLag;
 	}
 }
 
@@ -1304,8 +1312,10 @@ let setupNetworkConnection = () => {
 				gameStarted = true;
 				currentGameState = createGameState();
 				initializeGameState(currentGameState);
+				playerFrameAdvantages = [];
 				gameStartPlayerInfo.forEach(playerData => {
 					let newPlayerObject = createPlayer(currentGameState, playerData.playerName, playerData.playerID, playerData.playerTeam);
+					playerFrameAdvantages.push({id: playerData.playerID, frameAdvantage: 0});
 				});
 				console.log("starting game loop");
 				lastTime = Date.now();
@@ -1318,9 +1328,9 @@ let setupNetworkConnection = () => {
 				if (messageData.frameCount <= currentFrameCount) {
 					rollbackInputReceived = true;
 				}
-				// Calculate remoteFrameLag and localFrameLag
+				// Calculate remoteFrameLag
 				let remoteFrameLag = (messageData.frameCount - inputDelay) - currentFrameCount;
-				let localFrameLag = currentFrameCount - (messageData.frameCount - inputDelay);
+				playerFrameAdvantages.find(entry => entry.id === messageData.id);
 			}
 			// other player quitting
 			else if (messageType === "playerQuit") {
