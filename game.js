@@ -1330,7 +1330,8 @@ let setupNetworkConnection = () => {
 				}
 				// Calculate remoteFrameLag
 				let remoteFrameLag = (messageData.frameCount - inputDelay) - currentFrameCount;
-				playerFrameAdvantages.find(entry => entry.id === messageData.id);
+				let playerEntry = playerFrameAdvantages.find(entry => entry.id === messageData.id);
+				playerEntry.frameAdvantage = remoteFrameLag;
 			}
 			// other player quitting
 			else if (messageType === "playerQuit") {
