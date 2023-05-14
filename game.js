@@ -1281,6 +1281,8 @@ let setupNetworkConnection = () => {
 			// new available room/rooms
 			if (messageType === "localPlayerID") {
 				localPlayerID = messageData;
+				// Remove local player from playerFrameAdvantages list if still in there
+				// playerFrameAdvantages = playerFrameAdvantages.filter(entry => entry.id !== localPlayerID);
 			}
 			else if (messageType === "roomInfo") {
 				if (Array.isArray(messageData)) {
@@ -1315,7 +1317,10 @@ let setupNetworkConnection = () => {
 				playerFrameAdvantages = [];
 				gameStartPlayerInfo.forEach(playerData => {
 					let newPlayerObject = createPlayer(currentGameState, playerData.playerName, playerData.playerID, playerData.playerTeam);
-					playerFrameAdvantages.push({id: playerData.playerID, frameAdvantage: 0});
+					// Don't add local player to playerFrameAdvantages
+					if (playerData.playerID !== localPlayerID) {
+						playerFrameAdvantages.push({id: playerData.playerID, frameAdvantage: 0});
+					}
 				});
 				console.log("starting game loop");
 				lastTime = Date.now();
