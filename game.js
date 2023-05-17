@@ -704,14 +704,21 @@ let gameLoop = () => {
 			resimulateGame();
 		}
 
+		let frameTimeAdjust = 0;
 		// Determine if a slight delay or skip forward is needed
-		numLargestRemoteLag = Math.max(...playerFrameAdvantages.map(entry => entry.frameAdvantage));
+		numLargestRemoteLag = Math.min(...playerFrameAdvantages.map(entry => entry.frameAdvantage));
+		if (numLargestRemoteLag < -1) {
+			frameTimeAdjust = 1;
+			if (numLargestRemoteLag < -5) {
+				frameTimeAdjust = 2;
+			}
+		}
 
 		let newTime = Date.now();
 		let deltaTime = newTime - lastTime;
 		lastTime = newTime;
 		timeAccumulator += deltaTime;
-		if (timeAccumulator > frameTime) {
+		if (timeAccumulator > (frameTime + frameTimeAdjust)) {
 			// Run logic to simulate frames of the game
 			let limit = 10;
 			while (timeAccumulator > frameTime && limit > 0) {
