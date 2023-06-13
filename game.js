@@ -29,6 +29,9 @@ let floorMesh;
 let tableMaterial;
 let tableMaterialHighlight;
 
+let supplyMaterial;
+let supplyMaterialHighlight;
+
 let orbSourceMaterial;
 
 let sphereGeometry;
@@ -215,6 +218,9 @@ let createApplianceMesh = (applianceObject) => {
 	let newApplianceMesh;
 	if (applianceObject.subType === "table") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
+	}
+	else if (applianceObject.subType === "supply") {
+		newApplianceMesh = new THREE.Mesh(cubeGeometry, supplyMaterial);
 	}
 	else if (applianceObject.subType === "orbSource") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
@@ -461,6 +467,8 @@ let init = () => {
 	floorMaterial = new THREE.MeshToonMaterial({color: 0x504030});
 	tableMaterial = new THREE.MeshToonMaterial({color: 0xccaa22});
 	tableMaterialHighlight = new THREE.MeshToonMaterial({color: 0xddbb33});
+	supplyMaterial = new THREE.MeshToonMaterial({color: 0xaa99cc});
+	supplyMaterialHighlight = new THREE.MeshToonMaterial({color: 0xbbaadd});
 	itemMaterial = new THREE.MeshToonMaterial({color: 0x2266dd});
 	itemMaterial2 = new THREE.MeshToonMaterial({color: 0xdd2266});
 	progressMaterial = new THREE.MeshToonMaterial({color: 0x33ffbb});
@@ -491,9 +499,9 @@ let initializeGameState = (gs) => {
 	let listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
 
 	for (let i = 0; i < 6; i++) {
-		let newTable = createAppliance(gs, "table", i * 2 - 3, i - 2);
+		let newSupply = createAppliance(gs, "supply", i * 2 - 3, i - 2);
 		let newItem = createItem(gs, listOfItems[i]);
-		transferItem(undefined, newTable, newItem);
+		transferItem(undefined, newSupply, newItem);
 	}
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance(gs, "table", i - 3, -4);
@@ -860,10 +868,12 @@ let renderFrame = (gs) => {
 		gs.applianceList.forEach(applianceObject => {
 			if (playerObject.xTarget === applianceObject.xPosition &&
 				playerObject.yTarget === applianceObject.yPosition) {
-				applianceObject.connectedMesh.material = tableMaterialHighlight;
+				let highlightToUse = (applianceObject.subType === "supply") ? supplyMaterialHighlight : tableMaterialHighlight;
+				applianceObject.connectedMesh.material = highlightToUse;
 			}
 			else {
-				applianceObject.connectedMesh.material = tableMaterial;
+				let matToUse = (applianceObject.subType === "supply") ? supplyMaterial : tableMaterial;
+				applianceObject.connectedMesh.material = matToUse;
 			}
 		});
 	});
@@ -1078,13 +1088,28 @@ let gameLogic = (gs) => {
 				// Grab input: try to grab or put down an item
 				gs.applianceList.forEach((applianceObject) => {
 					if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
-						if (playerObject.holdingItem && !applianceObject.holdingItem) {
-							// Put down object
-							transferItem(playerObject, applianceObject, playerObject.heldItem);
+						// Supply appliances - copy item when picking up, delete item when putting down, never remove item from supply
+						// Can only put item down onto same type of supply
+						if (applianceObject.subType === "supply") {
+							if (playerObject.holdingItem && applianceObject.holdingItem && playerObject.heldItem.subType === applianceObject.heldItem.subType) {
+								// Delete player's held item
+								transferItem(playerObject, undefined, playerObject.heldItem);
+							}
+							else if (!playerObject.holdingItem && applianceObject.holdingItem) {
+								// Pick up copy of item
+								let newItemCopy = createItem(gs, applianceObject.heldItem.subType);
+								transferItem(undefined, playerObject, newItemCopy);
+							}
 						}
-						else if (!playerObject.holdingItem && applianceObject.holdingItem) {
-							// Pick up object
-							transferItem(applianceObject, playerObject, applianceObject.heldItem);
+						else {
+							if (playerObject.holdingItem && !applianceObject.holdingItem) {
+								// Put down object
+								transferItem(playerObject, applianceObject, playerObject.heldItem);
+							}
+							else if (!playerObject.holdingItem && applianceObject.holdingItem) {
+								// Pick up object
+								transferItem(applianceObject, playerObject, applianceObject.heldItem);
+							}
 						}
 					}
 				});
@@ -1180,17 +1205,23 @@ let transferItem = (oldHolder, newHolder, item) => {
 		oldHolder.heldItem = undefined;
 		oldHolder.holdingItem = false;
 	}
-	newHolder.heldItem = item;
-	newHolder.holdingItem = true;
-	if (newHolder.type === "player") {
-		item.heldByPlayer = true;
-		item.heldByAppliance = false;
+	if (!!newHolder) {
+		newHolder.heldItem = item;
+		newHolder.holdingItem = true;
+		if (newHolder.type === "player") {
+			item.heldByPlayer = true;
+			item.heldByAppliance = false;
+		}
+		else {
+			item.heldByPlayer = false;
+			item.heldByAppliance = true;
+		}
+		item.holder = newHolder;
 	}
 	else {
-		item.heldByPlayer = false;
-		item.heldByAppliance = true;
+		// Remove item if no new holder
+		item.toBeRemoved = true;
 	}
-	item.holder = newHolder;
 }
 
 let inputChanged = false;
