@@ -501,7 +501,7 @@ let initializeGameState = (gs) => {
 	for (let i = 0; i < 6; i++) {
 		let newSupply = createAppliance(gs, "supply", i * 2 - 3, i - 2);
 		let newItem = createItem(gs, listOfItems[i]);
-		transferItem(undefined, newSupply, newItem);
+		transferItem(gs, undefined, newSupply, newItem);
 	}
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance(gs, "table", i - 3, -4);
@@ -1093,22 +1093,22 @@ let gameLogic = (gs) => {
 						if (applianceObject.subType === "supply") {
 							if (playerObject.holdingItem && applianceObject.holdingItem && playerObject.heldItem.subType === applianceObject.heldItem.subType) {
 								// Delete player's held item
-								transferItem(playerObject, undefined, playerObject.heldItem);
+								transferItem(gs, playerObject, undefined, playerObject.heldItem);
 							}
 							else if (!playerObject.holdingItem && applianceObject.holdingItem) {
 								// Pick up copy of item
 								let newItemCopy = createItem(gs, applianceObject.heldItem.subType);
-								transferItem(undefined, playerObject, newItemCopy);
+								transferItem(gs, undefined, playerObject, newItemCopy);
 							}
 						}
 						else {
 							if (playerObject.holdingItem && !applianceObject.holdingItem) {
 								// Put down object
-								transferItem(playerObject, applianceObject, playerObject.heldItem);
+								transferItem(gs, playerObject, applianceObject, playerObject.heldItem);
 							}
 							else if (!playerObject.holdingItem && applianceObject.holdingItem) {
 								// Pick up object
-								transferItem(applianceObject, playerObject, applianceObject.heldItem);
+								transferItem(gs, applianceObject, playerObject, applianceObject.heldItem);
 							}
 						}
 					}
@@ -1191,6 +1191,11 @@ let gameLogic = (gs) => {
 			anyRemovals = true;
 		}
 	});
+	gs.itemList.forEach(itemObject => {
+		if (itemObject.toBeRemoved) {
+			anyRemovals = true;
+		}
+	});
 	// Removal loops
 	if (anyRemovals) {
 		gs.playerList.filter(playerObject => playerObject.toBeRemoved).forEach(playerObject => {removePlayer(gs, playerObject);});
@@ -1200,7 +1205,7 @@ let gameLogic = (gs) => {
 		gs.effectList.filter(effectObject => effectObject.toBeRemoved).forEach(effectObject => {removeEffect(gs, effectObject);});
 	}
 }
-let transferItem = (oldHolder, newHolder, item) => {
+let transferItem = (gs, oldHolder, newHolder, item) => {
 	if (!!oldHolder) {
 		oldHolder.heldItem = undefined;
 		oldHolder.holdingItem = false;
@@ -1221,6 +1226,9 @@ let transferItem = (oldHolder, newHolder, item) => {
 	else {
 		// Remove item if no new holder
 		item.toBeRemoved = true;
+		item.heldByPlayer = false;
+		item.heldByAppliance = false;
+		item.holder = undefined;
 	}
 }
 
