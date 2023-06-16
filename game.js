@@ -55,6 +55,12 @@ let bulletMaterial;
 let ballGeometry;
 let ballMaterial;
 
+let herbGeometry;
+let herbMaterial;
+
+let powderGeometry;
+let powderMaterial;
+
 let hitEffectGeometry;
 let hitEffectMaterial;
 
@@ -240,7 +246,7 @@ let removeAppliance = (gs, applianceObject) => {
 let createItem = (gs, itemType) => {
 	let newItem = {
 		type: "item",
-		chopped: false,
+		processed: false,
 		progress: 0,
 		subType: itemType,
 		holder: undefined,
@@ -277,6 +283,12 @@ let createItemMesh = (itemObject) => {
 	}
 	else if (itemObject.subType === "ball") {
 		newItemMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+	}
+	else if (itemObject.subType === "herb") {
+		newItemMesh = new THREE.Mesh(herbGeometry, herbMaterial);
+	}
+	else if (itemObject.subType === "powder") {
+		newItemMesh = new THREE.Mesh(powderGeometry, powderMaterial);
 	}
 	else {
 		console.log("item type missing: " + itemObject.subType);
@@ -458,6 +470,8 @@ let init = () => {
 	gunGeometry = new THREE.BoxGeometry(0.2, 0.45, 0.2);
 	bulletGeometry = new THREE.SphereGeometry(0.17, 5, 4);
 	ballGeometry = new THREE.DodecahedronGeometry(0.35, 0);
+	herbGeometry = new THREE.LatheGeometry(undefined, 8, 0, 2 * Math.PI);
+	powderGeometry = new THREE.CapsuleGeometry(0.1, 0.2, 2, 7);
 	hitEffectGeometry = new THREE.RingGeometry(0.2, 0.5, 14);
 
 	// Materials
@@ -477,6 +491,8 @@ let init = () => {
 	gunMaterial = new THREE.MeshToonMaterial({color: 0x6f7064});
 	bulletMaterial = new THREE.MeshToonMaterial({color: 0xc6a039});
 	ballMaterial = new THREE.MeshToonMaterial({color: 0xdf202f});
+	herbMaterial = new THREE.MeshToonMaterial({color: 0x10c040});
+	powderMaterial = new THREE.MeshToonMaterial({color: 0x60a080});
 
 	// Single use meshes
 	floorMesh = new THREE.Mesh(planeGeometry, floorMaterial);
@@ -496,10 +512,10 @@ let init = () => {
 }
 
 let initializeGameState = (gs) => {
-	let listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball"];
+	let listOfItems = ["sword", "gun", "ball", "sword", "gun", "ball", "herb", "powder"];
 
-	for (let i = 0; i < 6; i++) {
-		let newSupply = createAppliance(gs, "supply", i * 2 - 3, i - 2);
+	for (let i = 0; i < 8; i++) {
+		let newSupply = createAppliance(gs, "supply", i * 2 - 6, i - 2);
 		let newItem = createItem(gs, listOfItems[i]);
 		transferItem(gs, undefined, newSupply, newItem);
 	}
@@ -509,6 +525,7 @@ let initializeGameState = (gs) => {
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance(gs, "table", i + 1, -3);
 	}
+
 }
 
 let currentView = "entry";
@@ -897,7 +914,7 @@ let renderFrame = (gs) => {
 			itemMesh.rotation.z = itemObject.initialRotation;
 		}
 		// Change material when progress is made
-		if (itemObject.chopped) {
+		if (itemObject.processed) {
 			itemMesh.material = itemMaterial2;
 		}
 	});
@@ -1145,11 +1162,11 @@ let gameLogic = (gs) => {
 					if (applianceObject.holdingItem) {
 						if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
 							let targetItem = applianceObject.heldItem;
-							if (!targetItem.chopped) {
+							if (!targetItem.processed) {
 								targetItem.progress += 1;
 							}
 							if (targetItem.progress >= 100) {
-								targetItem.chopped = true;
+								targetItem.processed = true;
 							}
 						}
 					}
