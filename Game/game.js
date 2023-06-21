@@ -18,6 +18,9 @@ let scene;
 let camera;
 let renderer;
 
+let thirdPersonTest = false;
+let firstPersonTest = false;
+
 // Specific render stuff
 let cubeGeometry;
 let playerMaterial;
@@ -412,10 +415,11 @@ let init = () => {
 
 	glTFLoader = new GLTFLoader();
 
-	glTFLoader.load("models/rock1.gltf",
+	glTFLoader.load("models/rock2.gltf",
 		(gltf) => {
 			rockGeometry = gltf.scene.children[0].geometry;
-			console.log("Rock Geometry Loaded");
+			rockMaterial = gltf.scene.children[0].material;
+			console.log("Rock Model Loaded");
 		},
 		(xhr) => {
 		},
@@ -518,7 +522,7 @@ let init = () => {
 	ballMaterial = new THREE.MeshToonMaterial({color: 0xdf202f});
 	herbMaterial = new THREE.MeshToonMaterial({color: 0x10c040});
 	powderMaterial = new THREE.MeshToonMaterial({color: 0x60a080});
-	rockMaterial = new THREE.MeshToonMaterial({color: 0x994433});
+	//rockMaterial = new THREE.MeshToonMaterial({color: 0x994433});
 
 	// Single use meshes
 	floorMesh = new THREE.Mesh(planeGeometry, floorMaterial);
@@ -958,6 +962,25 @@ let renderFrame = (gs) => {
 		effectMesh.position.x = effectObject.xPosition;
 		effectMesh.position.y = effectObject.yPosition;
 	});
+	let localPlayer = getLocalPlayer(gs);
+	let localPlayerMesh = localPlayer.connectedMesh;
+	if (thirdPersonTest || firstPersonTest) {
+		if (thirdPersonTest) {
+			camera.position.set(localPlayerMesh.position.x, localPlayerMesh.position.y, localPlayerMesh.position.z + 10);
+			localPlayerMesh.visible = true;
+			camera.rotation.set(0, 0, 0);
+		}
+		else if (firstPersonTest) {
+			camera.position.set(localPlayerMesh.position.x, localPlayerMesh.position.y, localPlayerMesh.position.z);
+			localPlayerMesh.visible = false;
+			camera.rotation.copy(localPlayerMesh.rotation);
+		}
+	}
+	else {
+		// Normal overhead view
+		localPlayerMesh.visible = true;
+		camera.rotation.set(0, 0, 0);
+	}
 	// Actually render the 3d scene
 	renderer.render(scene, camera);
 	// Create overlays for all objects that need them
@@ -992,6 +1015,10 @@ let renderFrame = (gs) => {
 		resimulatedFramesSpan.textContent = numResimulatedFrames;
 		largestRemoteLagSpan.textContent = numLargestRemoteLag;
 	}
+}
+
+let getLocalPlayer = (gs) => {
+	return gs.playerList.filter(player => player.id === localPlayerID)[0];
 }
 
 let collisionTest = (object1, object2) => {
