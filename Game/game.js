@@ -1380,11 +1380,11 @@ let setupNetworkConnection = () => {
 		let socketURL;
 		if (location.href.indexOf("kramff.com") !== -1) {
 			wsProtocol = "wss://";
-			socketURL = wsProtocol + "bine.nfshost.com";
+			socketURL = wsProtocol + "bine.nfshost.com/alchemist/";
 		}
 		else {
 			wsProtocol = "ws://";
-			socketURL = (location.protocol + "//" + location.host + "/").replace(/\d+\/$/, "5000").replace("http://", wsProtocol);
+			socketURL = (location.protocol + "//" + location.host + "/").replace(/\d+\/$/, "8099").replace("http://", wsProtocol);
 		}
 		socket = new WebSocket(socketURL);
 		socket.onopen = (data) => {
@@ -1472,4 +1472,5 @@ let sendData = (type, data) => {
 	let sendObjStr = JSON.stringify({type: type, data: data});
 	socket.send(sendObjStr);
 }
+
 

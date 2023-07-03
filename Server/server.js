@@ -1,7 +1,7 @@
 console.log("Starting alchemy game server");
 
 const WebSocket = require("ws");
-const wss = new WebSocket.Server({port: 5000});
+const wss = new WebSocket.Server({port: 8099});
 wss.on("connection", (ws) => {
 	console.log("got connection");
 	let player = new Player(ws);
