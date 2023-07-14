@@ -150,6 +150,7 @@ let fixReferences = (fixObjectList, referenceKey, oldReferenceList, newReference
 let currentGameState;
 let gameStateHistory = [];
 let gameStarted = false;
+let gamePaused = false;
 let currentFrameCount = 0;
 let playerInputLog = [];
 let rollbackInputReceived = false;
@@ -402,6 +403,8 @@ let leaveRoomButton;
 let joinTeam1Button;
 let joinTeam2Button;
 let startGameButton;
+let pauseGameButton;
+let desyncToolButton;
 
 let gameStartPlayerInfo;
 let otherPlayers = [];
@@ -479,7 +482,24 @@ let init = () => {
 	startGameButton.onclick = (e) => {
 		sendData("startGame", 0);
 	}
-	
+
+	pauseGameButton = document.getElementById("pause_game");
+	pauseGameButton.onclick = (e) => {
+		gamePaused = !gamePaused;
+		if (gamePaused) {
+			sendData("pauseGame", currentFrameCount);
+			pauseGameButton.textContent = "Resume Game";
+		}
+		else {
+			sendData("resumeGame", currentFrameCount);
+			pauseGameButton.textContent = "Pause Game";
+		}
+	}
+
+	desyncToolButton = document.getElementById("run_desync_tool");
+	desyncToolButton.onclick = (e) => {
+		sendData("desyncTool", 0);
+	}
 
 	//nicknameInput.oninput
 	scene = new THREE.Scene();
@@ -752,7 +772,7 @@ let lastTime;
 let timeAccumulator = 0;
 let frameTime = 1000/60;
 let gameLoop = () => {
-	if (gameStarted && currentGameState !== undefined) {
+	if (gameStarted && currentGameState !== undefined && !gamePaused) {
 
 		// Do rollback simulations if needed
 		if (rollbackInputReceived) {
@@ -1457,6 +1477,19 @@ let setupNetworkConnection = () => {
 			}
 			// other player quitting
 			else if (messageType === "playerQuit") {
+			}
+			// other player pausing the game
+			else if (messageType === "pauseGame") {
+				gamePaused = true;
+				pauseGameButton.textContent = "Resume Game";
+			}
+			// other player resuming the game
+			else if (messageType === "resumeGame") {
+				gamePaused = false;
+				pauseGameButton.textContent = "Pause Game";
+			}
+			// other player used the desync eval tool
+			else if (messageType === "desyncTool") {
 			}
 		}
 	}

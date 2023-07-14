@@ -80,6 +80,45 @@ wss.on("connection", (ws) => {
 				}
 			});
 		}
+		// pause the game
+		else if {messageType = "pauseGame") {
+			if (currentRoom === undefined) {
+				console.log("not in a room right now");
+				return;
+			}
+			messageData.id = player.id;
+			currentRoom.connectedPlayers.forEach(otherPlayer => {
+				if (otherPlayer !== player) {
+					sendData(otherPlayer.ws, "pauseGame", messageData);
+				}
+			});
+		}
+		// resume the game
+		else if {messageType = "resumeGame") {
+			if (currentRoom === undefined) {
+				console.log("not in a room right now");
+				return;
+			}
+			messageData.id = player.id;
+			currentRoom.connectedPlayers.forEach(otherPlayer => {
+				if (otherPlayer !== player) {
+					sendData(otherPlayer.ws, "resumeGame", messageData);
+				}
+			});
+		}
+		// run the desync tool
+		else if {messageType = "desyncTool") {
+			if (currentRoom === undefined) {
+				console.log("not in a room right now");
+				return;
+			}
+			messageData.id = player.id;
+			currentRoom.connectedPlayers.forEach(otherPlayer => {
+				if (otherPlayer !== player) {
+					sendData(otherPlayer.ws, "desyncTool", messageData);
+				}
+			});
+		}
 	});
 	ws.on("close", () => {
 		console.log("disconnected");
