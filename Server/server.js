@@ -81,11 +81,12 @@ wss.on("connection", (ws) => {
 			});
 		}
 		// pause the game
-		else if {messageType = "pauseGame") {
+		else if (messageType === "pauseGame") {
 			if (currentRoom === undefined) {
 				console.log("not in a room right now");
 				return;
 			}
+			console.log(`Room ${currentRoom.id} pausing game!`);
 			messageData.id = player.id;
 			currentRoom.connectedPlayers.forEach(otherPlayer => {
 				if (otherPlayer !== player) {
@@ -94,11 +95,12 @@ wss.on("connection", (ws) => {
 			});
 		}
 		// resume the game
-		else if {messageType = "resumeGame") {
+		else if (messageType === "resumeGame") {
 			if (currentRoom === undefined) {
 				console.log("not in a room right now");
 				return;
 			}
+			console.log(`Room ${currentRoom.id} resuming game!`);
 			messageData.id = player.id;
 			currentRoom.connectedPlayers.forEach(otherPlayer => {
 				if (otherPlayer !== player) {
@@ -107,7 +109,21 @@ wss.on("connection", (ws) => {
 			});
 		}
 		// run the desync tool
-		else if {messageType = "desyncTool") {
+		else if (messageType === "desyncTool") {
+			if (currentRoom === undefined) {
+				console.log("not in a room right now");
+				return;
+			}
+			console.log("Running desync tool");
+			messageData.id = player.id;
+			currentRoom.connectedPlayers.forEach(otherPlayer => {
+				if (otherPlayer !== player) {
+					sendData(otherPlayer.ws, "desyncTool", messageData);
+				}
+			});
+		}
+		// game state history passed for desync tool
+		else if (messageType === "gameStateHistory") {
 			if (currentRoom === undefined) {
 				console.log("not in a room right now");
 				return;
@@ -115,9 +131,10 @@ wss.on("connection", (ws) => {
 			messageData.id = player.id;
 			currentRoom.connectedPlayers.forEach(otherPlayer => {
 				if (otherPlayer !== player) {
-					sendData(otherPlayer.ws, "desyncTool", messageData);
+					sendData(otherPlayer.ws, "gameStateHistory", messageData);
 				}
 			});
+
 		}
 	});
 	ws.on("close", () => {

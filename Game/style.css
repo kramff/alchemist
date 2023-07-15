@@ -195,4 +195,7 @@ p {
 	font-size: 10px;
 	pointer-events: auto;
 }
+.debug_ui button {
+	pointer-events: auto;
+}
 

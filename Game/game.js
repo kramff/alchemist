@@ -108,6 +108,12 @@ let copyGameState = (gs) => {
 	return gsNew;
 }
 
+let copyGameStateNoCircularRef = (gs) => {
+	let gsNew = copyGameState(gs);
+	gsNew.itemList.forEach(item => item.holder = undefined);
+	return gsNew;
+}
+
 let copyGameObjectList = (gsNew, sourceObjectList, targetObjectList, createObjFunc) => {
 	sourceObjectList.forEach(gameObject => {
 		let copyObject = createObjFunc(gsNew);
@@ -147,6 +153,95 @@ let fixReferences = (fixObjectList, referenceKey, oldReferenceList, newReference
 	});
 }
 
+let compareGameStates = (gameState1, gameState2) => {
+	// return true if matching, false if not
+	let comparisons = [
+		gameState1.frameCount === gameState2.frameCount,
+		gameState1.applianceList.length === gameState2.applianceList.length,
+		gameState1.applianceList.map((object, index) => {
+			let matchingObject = gameState2.applianceList[index];
+			let hasMatch = matchingObject !== undefined;
+			if (hasMatch) {
+				if (object.subType === matchingObject.subType &&
+					object.xPosition === matchingObject.xPosition &&
+					object.yPosition === matchingObject.yPosition &&
+					object.holdingItem === matchingObject.holdingItem &
+					object.heldItem?.subType === matchingObject.heldItem?.subType) {
+					return true;
+				}
+			}
+			return false;
+		}),
+		gameState1.itemList.length === gameState2.itemList.length,
+		gameState1.itemList.map((object, index) => {
+			let matchingObject = gameState2.itemList[index];
+			let hasMatch = matchingObject !== undefined;
+			if (hasMatch) {
+				if (object.subType === matchingObject.subType) {
+					return true;
+				}
+			}
+			return false;
+		}),
+		gameState1.playerList.length === gameState2.playerList.length,
+		gameState1.playerList.map((object, index) => {
+			let matchingObject = gameState2.playerList[index];
+			let hasMatch = matchingObject !== undefined;
+			if (hasMatch) {
+				if (object.id === matchingObject.id &&
+					object.upPressed === matchingObject.upPressed &&
+					object.rightPressed === matchingObject.rightPressed &&
+					object.downPressed === matchingObject.downPressed &&
+					object.leftPressed === matchingObject.leftPressed &&
+					object.grabPressed === matchingObject.grabPressed &&
+					object.usePressed === matchingObject.usePressed &&
+					object.anchorPressed === matchingObject.anchorPressed &&
+					object.releasedGrab === matchingObject.releasedGrab &&
+					object.releasedUse === matchingObject.releasedUse &&
+					object.xPosition === matchingObject.xPosition &&
+					object.xSpeed === matchingObject.xSpeed &&
+					object.yPosition === matchingObject.yPosition &&
+					object.ySpeed === matchingObject.ySpeed &&
+					object.health === matchingObject.health &&
+					object.holdingItem === matchingObject.holdingItem &
+					object.heldItem?.subType === matchingObject.heldItem?.subType) {
+					return true;
+				}
+			}
+			return false;
+		}),
+		gameState1.projectileList.length === gameState2.projectileList.length,
+		gameState1.projectileList.map((object, index) => {
+			let matchingObject = gameState2.projectileList[index];
+			let hasMatch = matchingObject !== undefined;
+			if (hasMatch) {
+				if (object.subType === matchingObject.subType &&
+					object.xPosition === matchingObject.xPosition &&
+					object.yPosition === matchingObject.yPosition &&
+					object.sourcePlayer.id === matchingObject.sourcePlayer.id &&
+					object.rotation === matchingObject.rotation &&
+					object.lifespan === matchingObject.lifespan) {
+					return true;
+				}
+			}
+			return false;
+		}),
+		// Ignoring effect list
+		//gameState1.effectList.map((object, index) => {
+			//return true;
+		//}),
+	].flat(1);
+	let overallResult = comparisons.reduce((result, comparison) => {
+		return result && comparison;
+	}, true);
+	if (overallResult === false) {
+		console.log("Difference detected");
+		console.log(comparisons);
+		debugger;
+	}
+	return overallResult;
+}
+
 let currentGameState;
 let gameStateHistory = [];
 let gameStarted = false;
@@ -177,7 +272,7 @@ let createPlayer = (gs, name, id, team) => {
 		yTarget: 0,
 		health: 10,
 		maxHealth: 10,
-		hasItem: false,
+		holdingItem: false,
 		heldItem: undefined,
 		upPressed: false,
 		rightPressed: false,
@@ -222,7 +317,7 @@ let createAppliance = (gs, applianceType, xPosition, yPosition) => {
 		xPosition: xPosition || 0,
 		yPosition: yPosition || 0,
 		rotation: 0,
-		hasItem: false,
+		holdingItem: false,
 		heldItem: undefined,
 		connectedMesh: undefined,
 		connectedOverlayObjects: {},
@@ -844,6 +939,10 @@ let gameLoop = () => {
 			inputChanged = false;
 		}
 		renderFrame(currentGameState);
+	}
+	else if (gamePaused) {
+		// Don't build up a large chunk of time while paused
+		lastTime = Date.now();
 	}
 	requestAnimationFrame(gameLoop);
 }
@@ -1490,6 +1589,36 @@ let setupNetworkConnection = () => {
 			}
 			// other player used the desync eval tool
 			else if (messageType === "desyncTool") {
+				// send whole game state history
+				sendData("gameStateHistory", gameStateHistory.map(copyGameStateNoCircularRef));
+			}
+			// other player sending game state history
+			else if (messageType === "gameStateHistory") {
+				//  read through history and compare each frame state
+				let foundDesync = false;
+				messageData.forEach((otherGameState, index) => {
+					if (foundDesync) {
+						// Already found a desync - no need to keep iterating
+						return;
+					}
+					if (gameStateHistory.length <= index) {
+						foundDesync = true;
+						return;
+					}
+					let statesEquivalent = compareGameStates(gameStateHistory[index], otherGameState);
+					if (!statesEquivalent) {
+						console.log(`Desync detected at frame ${index}`);
+						console.log(gameStateHistory[index]);
+						console.log(otherGameState);
+						console.log("Full game state histories:");
+						console.log(gameStateHistory)
+						console.log(messageData);
+						foundDesync = true;
+					}
+				});
+				if (!foundDesync) {
+					console.log("No desync detected!");
+				}
 			}
 		}
 	}
