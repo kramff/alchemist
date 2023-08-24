@@ -153,88 +153,85 @@ let fixReferences = (fixObjectList, referenceKey, oldReferenceList, newReference
 	});
 }
 
-let compareGameStates = (gameState1, gameState2) => {
-	// return true if matching, false if not
-	let comparisons = [
-		gameState1.frameCount === gameState2.frameCount,
-		gameState1.applianceList.length === gameState2.applianceList.length,
-		gameState1.applianceList.map((object, index) => {
-			let matchingObject = gameState2.applianceList[index];
-			let hasMatch = matchingObject !== undefined;
-			if (hasMatch) {
-				if (object.subType === matchingObject.subType &&
-					object.xPosition === matchingObject.xPosition &&
-					object.yPosition === matchingObject.yPosition &&
-					object.holdingItem === matchingObject.holdingItem &
-					object.heldItem?.subType === matchingObject.heldItem?.subType) {
-					return true;
-				}
-			}
-			return false;
-		}),
-		gameState1.itemList.length === gameState2.itemList.length,
-		gameState1.itemList.map((object, index) => {
-			let matchingObject = gameState2.itemList[index];
-			let hasMatch = matchingObject !== undefined;
-			if (hasMatch) {
-				if (object.subType === matchingObject.subType) {
-					return true;
-				}
-			}
-			return false;
-		}),
-		gameState1.playerList.length === gameState2.playerList.length,
-		gameState1.playerList.map((object, index) => {
-			let matchingObject = gameState2.playerList[index];
-			let hasMatch = matchingObject !== undefined;
-			if (hasMatch) {
-				if (object.id === matchingObject.id &&
-					object.upPressed === matchingObject.upPressed &&
-					object.rightPressed === matchingObject.rightPressed &&
-					object.downPressed === matchingObject.downPressed &&
-					object.leftPressed === matchingObject.leftPressed &&
-					object.grabPressed === matchingObject.grabPressed &&
-					object.usePressed === matchingObject.usePressed &&
-					object.anchorPressed === matchingObject.anchorPressed &&
-					object.releasedGrab === matchingObject.releasedGrab &&
-					object.releasedUse === matchingObject.releasedUse &&
-					object.xPosition === matchingObject.xPosition &&
-					object.xSpeed === matchingObject.xSpeed &&
-					object.yPosition === matchingObject.yPosition &&
-					object.ySpeed === matchingObject.ySpeed &&
-					object.health === matchingObject.health &&
-					object.holdingItem === matchingObject.holdingItem &
-					object.heldItem?.subType === matchingObject.heldItem?.subType) {
-					return true;
-				}
-			}
-			return false;
-		}),
-		gameState1.projectileList.length === gameState2.projectileList.length,
-		gameState1.projectileList.map((object, index) => {
-			let matchingObject = gameState2.projectileList[index];
-			let hasMatch = matchingObject !== undefined;
-			if (hasMatch) {
-				if (object.subType === matchingObject.subType &&
-					object.xPosition === matchingObject.xPosition &&
-					object.yPosition === matchingObject.yPosition &&
-					object.sourcePlayer.id === matchingObject.sourcePlayer.id &&
-					object.rotation === matchingObject.rotation &&
-					object.lifespan === matchingObject.lifespan) {
-					return true;
-				}
-			}
-			return false;
-		}),
-		// Ignoring effect list
-		//gameState1.effectList.map((object, index) => {
-			//return true;
-		//}),
-	].flat(1);
+let compareGameStates = (gs1, gs2) => {
+	// For each comparison, either add a string describing the difference, or nothing if there is no difference
+	// Overall function should return false if the game states match, or true if there is any difference
+	let comparisons = [];
+	if (gs1.frameCount !== gs2.frameCount) {comparisons.push(`frameCount diff ${gs1.frameCount} !== ${gs2.frameCount}`);}
+	if (gs1.applianceList.length !== gs2.applianceList.length) {comparisons.push(`applicationList.length diff ${gs1.applicationList.length} !== ${gs2.applicationList.length}`);}
+	gs1.applianceList.map((object, index) => {
+		let matchingObject = gs2.applianceList[index];
+		let hasMatch = matchingObject !== undefined;
+		if (hasMatch) {
+			if (object.subType !== matchingObject.subType) {comparisons.push(`appliance.subType diff ${object.subType} !== ${matchingObject.subType}`);}
+			if (object.xPosition !== matchingObject.xPosition) {comparisons.push(`appliance.xPosition diff ${object.xPosition} !== ${matchingObject.xPosition}`);}
+			if (object.yPosition !== matchingObject.yPosition) {comparisons.push(`appliance.yPosition diff ${object.yPosition} !== ${matchingObject.yPosition}`);}
+			if (object.holdingItem !== matchingObject.holdingItem) {comparisons.push(`appliance.holdingItem diff ${object.holdingItem} !== ${matchingObject.holdingItem}`);}
+			if (object.heldItem?.subType !== matchingObject.heldItem?.subType) {comparisons.push(`appliance.heldItem.subType diff ${object.heldItem?.subType} !== ${matchingObject.heldItem?.subType}`);}
+		}
+		else {comparisons.push(`appliance in gs1 has no match in gs2 at index ${index}`);}
+	});
+	if (gs1.itemList.length !== gs2.itemList.length) {comparisons.push(`itemList.length diff ${gs1.itemList.length} !== ${gs2.itemList.length}`);}
+	gs1.itemList.map((object, index) => {
+		let matchingObject = gs2.itemList[index];
+		let hasMatch = matchingObject !== undefined;
+		if (hasMatch) {
+			if (object.subType !== matchingObject.subType) {comparisons.push(`item.subtype diff ${object.subtype} !== ${matchingObject.subtype}`);}
+		}
+		else {comparisons.push(`item in gs1 has no match in gs2 at index ${index}`);}
+	});
+	if (gs1.playerList.length !== gs2.playerList.length) {comparisons.push(`playerList.length diff ${gs1.playerList.length} !== ${gs2.playerList.length}`);}
+	gs1.playerList.map((object, index) => {
+		let matchingObject = gs2.playerList[index];
+		let hasMatch = matchingObject !== undefined;
+		if (hasMatch) {
+			if (object.id !== matchingObject.id) {comparisons.push(`player.id diff ${object.id} !== ${matchingObject.id}`);}
+			if (object.upPressed !== matchingObject.upPressed) {comparisons.push(`player.upPressed diff ${object.upPressed} !== ${matchingObject.upPressed}`);}
+			if (object.rightPressed !== matchingObject.rightPressed) {comparisons.push(`player.rightPressed diff ${object.rightPressed} !== ${matchingObject.rightPressed}`);}
+			if (object.downPressed !== matchingObject.downPressed) {comparisons.push(`player.downPressed diff ${object.downPressed} !== ${matchingObject.downPressed}`);}
+			if (object.leftPressed !== matchingObject.leftPressed) {comparisons.push(`player.leftPressed diff ${object.leftPressed} !== ${matchingObject.leftPressed}`);}
+			if (object.grabPressed !== matchingObject.grabPressed) {comparisons.push(`player.grabPressed diff ${object.grabPressed} !== ${matchingObject.grabPressed}`);}
+			if (object.usePressed !== matchingObject.usePressed) {comparisons.push(`player.usePressed diff ${object.usePressed} !== ${matchingObject.usePressed}`);}
+			if (object.anchorPressed !== matchingObject.anchorPressed) {comparisons.push(`player.anchorPressed diff ${object.anchorPressed} !== ${matchingObject.anchorPressed}`);}
+			if (object.releasedGrab !== matchingObject.releasedGrab) {comparisons.push(`player.releasedGrab diff ${object.releasedGrab} !== ${matchingObject.releasedGrab}`);}
+			if (object.releasedUse !== matchingObject.releasedUse) {comparisons.push(`player.releasedUse diff ${object.releasedUse} !== ${matchingObject.releasedUse}`);}
+			if (object.xPosition !== matchingObject.xPosition) {comparisons.push(`player.xPosition diff ${object.xPosition} !== ${matchingObject.xPosition}`);}
+			if (object.xSpeed !== matchingObject.xSpeed) {comparisons.push(`player.xSpeed diff ${object.xSpeed} !== ${matchingObject.xSpeed}`);}
+			if (object.yPosition !== matchingObject.yPosition) {comparisons.push(`player.yPosition diff ${object.yPosition} !== ${matchingObject.yPosition}`);}
+			if (object.ySpeed !== matchingObject.ySpeed) {comparisons.push(`player.ySpeed diff ${object.ySpeed} !== ${matchingObject.ySpeed}`);}
+			if (object.health !== matchingObject.health) {comparisons.push(`player.health diff ${object.health} !== ${matchingObject.health}`);}
+			if (object.holdingItem !== matchingObject.holdingItem) {comparisons.push(`player.holdingItem diff ${object.holdingItem} !== ${matchingObject.holdingItem}`);}
+			if (object.heldItem?.subType !== matchingObject.heldItem?.subType) {comparisons.push(`player.heldItem diff ${object.heldItem?.subType} !== ${matchingObject.heldItem?.subType}`);}
+		}
+		else {comparisons.push(`player in gs1 has no match in gs2 at index ${index}`);}
+	});
+	if (gs1.projectileList.length !== gs2.projectileList.length) {comparisons.push(`projectileList.length diff ${gs1.projectileList.length} !== ${gs2.projectileList.length}`);}
+	gs1.projectileList.map((object, index) => {
+		let matchingObject = gs2.projectileList[index];
+		let hasMatch = matchingObject !== undefined;
+		if (hasMatch) {
+			if (object.subType !== matchingObject.subType) {comparisons.push(`projectile.subType diff ${object.subType} !== ${matchingObject.subType}`);}
+			if (object.xPosition !== matchingObject.xPosition) {comparisons.push(`projectile.xPosition diff ${object.xPosition} !== ${matchingObject.xPosition}`);}
+			if (object.yPosition !== matchingObject.yPosition) {comparisons.push(`projectile.yPosition diff ${object.yPosition} !== ${matchingObject.yPosition}`);}
+			if (object.sourcePlayer.id !== matchingObject.sourcePlayer.id) {comparisons.push(`projectile.sourcePlayer.id diff ${object.sourcePlayer.id} !== ${matchingObject.sourcePlayer.id}`);}
+			if (object.rotation !== matchingObject.rotation) {comparisons.push(`projectile.rotation diff ${object.rotation} !== ${matchingObject.rotation}`);}
+			if (object.lifespan !== matchingObject.lifespan) {comparisons.push(`projectile.lifespan diff ${object.lifespan} !== ${matchingObject.lifespan}`);}
+		}
+		else {comparisons.push(`projectile in gs1 has no match in gs2 at index ${index}`);}
+	});
+	// Ignoring effect list
+	//gameState1.effectList.map((object, index) => {
+		//return true;
+	//}),
+	comparisons = comparisons.flat(1);
+	// Any truthy value means there was a difference. (the truthy value would be a string)
 	let overallResult = comparisons.reduce((result, comparison) => {
-		return result && comparison;
-	}, true);
-	if (overallResult === false) {
+		if (comparison !== false) {
+			return true;
+		}
+		return result;
+	}, false);
+	if (overallResult === true) {
 		console.log("Difference detected");
 		console.log(comparisons);
 		debugger;
@@ -1605,8 +1602,8 @@ let setupNetworkConnection = () => {
 						foundDesync = true;
 						return;
 					}
-					let statesEquivalent = compareGameStates(gameStateHistory[index], otherGameState);
-					if (!statesEquivalent) {
+					let statesDifferent = compareGameStates(gameStateHistory[index], otherGameState);
+					if (statesDifferent) {
 						console.log(`Desync detected at frame ${index}`);
 						console.log(gameStateHistory[index]);
 						console.log(otherGameState);
