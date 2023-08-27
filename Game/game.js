@@ -807,15 +807,15 @@ let numLargestRemoteLag = 0;
 let resimulateGame = () => {
 	let currentResimulatedState = gameStateHistory[latestFullInputFrame];
 	// Only keep inputs as long as they will be needed
-	playerInputLog = playerInputLog.filter(input => input.frameCount >= latestFullInputFrame);
+	let recentPlayerInputLog = playerInputLog.filter(input => input.frameCount >= latestFullInputFrame);
 	// Sort inputs by frame number
-	playerInputLog.sort(compareInputFrameCount);
+	recentPlayerInputLog.sort(compareInputFrameCount);
 	// Keep track of latest input from each player
 	let latestPlayerInputs = currentResimulatedState.playerList.map(player => {return {id: player.id, frameCount: latestFullInputFrame};});
 	// Run the game back up to the current frame but with inputs from the input log
 	let tempFrameCount = latestFullInputFrame;
 	let inputLogIterator = 0;
-	let nextPlayerInput = playerInputLog[inputLogIterator];
+	let nextPlayerInput = recentPlayerInputLog[inputLogIterator];
 	let anyChangedInputs = false;
 	while (tempFrameCount < currentFrameCount) {
 		// Apply all (known) player inputs for this frame
@@ -829,17 +829,21 @@ let resimulateGame = () => {
 			}
 			// Get next player input in the log
 			inputLogIterator += 1;
-			nextPlayerInput = playerInputLog[inputLogIterator];
+			nextPlayerInput = recentPlayerInputLog[inputLogIterator];
 		}
 		// If any inputs (or any previous inputs) are different than what the historical game state had, resimulate it
 		if (anyChangedInputs) {
+			// ROLLBACK GAME LOOP
 			// Overwrite historical states
 			gameStateHistory[tempFrameCount] = copyGameState(currentResimulatedState);
 			// Run game logic
 			gameLogic(currentResimulatedState);
 			numResimulatedFrames += 1;
+			// TODO
+			// POTENTIAL ISSUE? SOMEWHERE AROUND HERE?
 			tempFrameCount += 1;
 			currentResimulatedState.frameCount = tempFrameCount;
+			// ROLLBACK GAME LOOP END
 		}
 		else {
 			// Just use existing historical state
@@ -876,9 +880,12 @@ let gameLoop = () => {
 		// Determine if a slight delay or skip forward is needed
 		numLargestRemoteLag = Math.min(...playerFrameAdvantages.map(entry => entry.frameAdvantage));
 		if (numLargestRemoteLag < -1) {
-			frameTimeAdjust = 1;
+			frameTimeAdjust = 4;
 			if (numLargestRemoteLag < -5) {
-				frameTimeAdjust = 2;
+				frameTimeAdjust = 8;
+			}
+			if (numLargestRemoteLag < -10) {
+				frameTimeAdjust = 16;
 			}
 		}
 
@@ -892,8 +899,10 @@ let gameLoop = () => {
 			while (timeAccumulator > frameTime && limit > 0) {
 				timeAccumulator -= frameTime;
 				limit -= 1;
+				// MAIN GAME LOOP
+				// TODO
+				// PROBABLY NOT THE ISSUE BUT MAYBE?
 				gameStateHistory.push(copyGameState(currentGameState));
-				currentFrameCount += 1;
 				// Apply any playerinputs for this frame
 				let playerInputsToApply = playerInputLog.filter(playerInput => playerInput.frameCount === currentFrameCount);
 				playerInputsToApply.forEach(playerInput => {
@@ -901,12 +910,14 @@ let gameLoop = () => {
 					applyInputToPlayer(matchingPlayer, playerInput);
 				});
 				gameLogic(currentGameState);
+				currentFrameCount += 1;
 				currentGameState.frameCount = currentFrameCount;
+				// MAIN GAME LOOP END
 			}
 			if (limit === 0) {
 				timeAccumulator = 0;
 			}
-			// Send inputs to server
+			// Send inputs to server, and save to input log for local game simulation in a couple frames
 			if (currentView === "game" && (inputChanged || (lastInputSentFrame + 120 < currentFrameCount))) {
 				// Case 1: input has changed
 				// Case 2: too long since last time input was sent to server
