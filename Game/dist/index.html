@@ -4,8 +4,8 @@
 	<title>Alchemist game</title>
 	 
 	<!-- scripts moved to bottom of body -->
-  <script type="module" crossorigin src="./assets/index-46a88638.js"></script>
-  <link rel="stylesheet" href="./assets/index-1d83cfcb.css">
+  <script type="module" crossorigin src="./assets/index-a9b2a058.js"></script>
+  <link rel="stylesheet" href="./assets/index-34b56fc6.css">
 </head>
 <body>
 	<div class="background_over_game active_bg"></div>
@@ -26,7 +26,7 @@
 				<p>Rooms</p>
 				<div class="box room_list" id="room_list">
 				</div>
-				<button id="make_room">Make room</button>
+				<button id="make_room" disabled="true">Make Room</button>
 				<!-- <input type="text" id="password" placeholder="Password (leave blank if no password)"> -->
 			</div>
 		</div>
@@ -40,7 +40,7 @@
 	</div>
 	<div class="page" view="waiting">
 		<div class="box waiting_box">
-			<button id="leave_room">Leave room</button>
+			<button id="leave_room">Leave Room</button>
 			<div class="box team_box" id="team_1">
 				<div class="team_label">Team 1</div>
 			</div>
@@ -60,6 +60,8 @@
 			<div class="debug rollbacks">Rollbacks: <span id="rollbacks">0</span></div>
 			<div class="debug resimulated_frames">Resimulated Frames: <span id="resimulated_frames">0</span></div>
 			<div class="debug largest_remote_lag">Largest remote lag: <span id="largest_remote_lag">0</span></div>
+			<button id="pause_game">Pause Game</button>
+			<button id="run_desync_tool">Run Desync Eval Tool</button>
 		</div>
 	</div>
 	<!-- <script src="three.min.js"></script> -->
