@@ -1506,6 +1506,7 @@ let setupNetworkConnection = () => {
 		socket.onopen = (data) => {
 			console.log("connected to server!");
 			connected = true;
+			makeRoomButton.disabled = undefined;
 		}
 		socket.onmessage = (message) => {
 			let messageParse = JSON.parse(message.data);
