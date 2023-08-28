@@ -132,6 +132,7 @@ wss.on("connection", (ws) => {
 			currentRoom.connectedPlayers.forEach(otherPlayer => {
 				if (otherPlayer !== player) {
 					sendData(otherPlayer.ws, "gameStateHistory", messageData);
+					console.log("Game state history passed through server");
 				}
 			});
 

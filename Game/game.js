@@ -902,13 +902,13 @@ let gameLoop = () => {
 				// MAIN GAME LOOP
 				// TODO
 				// PROBABLY NOT THE ISSUE BUT MAYBE?
-				gameStateHistory.push(copyGameState(currentGameState));
 				// Apply any playerinputs for this frame
 				let playerInputsToApply = playerInputLog.filter(playerInput => playerInput.frameCount === currentFrameCount);
 				playerInputsToApply.forEach(playerInput => {
 					let matchingPlayer = currentGameState.playerList.find(player => player.id === playerInput.id);
 					applyInputToPlayer(matchingPlayer, playerInput);
 				});
+				gameStateHistory.push(copyGameState(currentGameState));
 				gameLogic(currentGameState);
 				currentFrameCount += 1;
 				currentGameState.frameCount = currentFrameCount;
@@ -1599,10 +1599,13 @@ let setupNetworkConnection = () => {
 			// other player used the desync eval tool
 			else if (messageType === "desyncTool") {
 				// send whole game state history
+				console.log("Other player requested full game state history for desync detector tool");
 				sendData("gameStateHistory", gameStateHistory.map(copyGameStateNoCircularRef));
+				console.log("Sent game state history...");
 			}
 			// other player sending game state history
 			else if (messageType === "gameStateHistory") {
+				console.log("Got game state history, running desync detector...");
 				//  read through history and compare each frame state
 				let foundDesync = false;
 				messageData.forEach((otherGameState, index) => {
@@ -1611,6 +1614,8 @@ let setupNetworkConnection = () => {
 						return;
 					}
 					if (gameStateHistory.length <= index) {
+						console.log("remote gameStateHistory ran out of states without finding a desync");
+						console.log(`local: ${gameStateHistory.length} frames, remote: ${messageData.length} frames`);
 						foundDesync = true;
 						return;
 					}
