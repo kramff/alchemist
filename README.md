@@ -37,13 +37,15 @@ http://localhost:8090/index.html
 
 Vite doesn't work over the internet. To build for web hosting:
 
+In Game/
+
 > npx vite build
 
-then, copy the models folder into Game/dist
+then, copy the models folder into Game/dist/
 
 (TODO: make that happen automatically)
 
-The Game/dist folder is what should be put into the web server
+The Game/dist/ folder is what should be put into the web server
 
 ---
 
