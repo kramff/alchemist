@@ -833,17 +833,13 @@ let resimulateGame = () => {
 		}
 		// If any inputs (or any previous inputs) are different than what the historical game state had, resimulate it
 		if (anyChangedInputs) {
-			// ROLLBACK GAME LOOP
 			// Overwrite historical states
 			gameStateHistory[tempFrameCount] = copyGameState(currentResimulatedState);
 			// Run game logic
 			gameLogic(currentResimulatedState);
 			numResimulatedFrames += 1;
-			// TODO
-			// POTENTIAL ISSUE? SOMEWHERE AROUND HERE?
 			tempFrameCount += 1;
 			currentResimulatedState.frameCount = tempFrameCount;
-			// ROLLBACK GAME LOOP END
 		}
 		else {
 			// Just use existing historical state
@@ -899,9 +895,6 @@ let gameLoop = () => {
 			while (timeAccumulator > frameTime && limit > 0) {
 				timeAccumulator -= frameTime;
 				limit -= 1;
-				// MAIN GAME LOOP
-				// TODO
-				// PROBABLY NOT THE ISSUE BUT MAYBE?
 				// Apply any playerinputs for this frame
 				let playerInputsToApply = playerInputLog.filter(playerInput => playerInput.frameCount === currentFrameCount);
 				playerInputsToApply.forEach(playerInput => {
@@ -912,7 +905,6 @@ let gameLoop = () => {
 				gameLogic(currentGameState);
 				currentFrameCount += 1;
 				currentGameState.frameCount = currentFrameCount;
-				// MAIN GAME LOOP END
 			}
 			if (limit === 0) {
 				timeAccumulator = 0;
