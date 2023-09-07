@@ -39,8 +39,6 @@ let tableMaterialHighlight;
 let supplyMaterial;
 let supplyMaterialHighlight;
 
-let orbSourceMaterial;
-
 let sphereGeometry;
 let itemMaterial;
 let itemMaterial2;
@@ -70,6 +68,10 @@ let powderMaterial;
 
 let rockGeometry;
 let rockMaterial;
+
+let safeGeometry;
+let safeMaterial;
+let safeMaterialHighlight;
 
 let hitEffectGeometry;
 let hitEffectMaterial;
@@ -317,6 +319,9 @@ let createAppliance = (gs, applianceType, xPosition, yPosition) => {
 		holdingItem: false,
 		heldItem: undefined,
 		connectedMesh: undefined,
+		regularMat: undefined,
+		highlightMat: undefined,
+		assignedTeam: undefined,
 		connectedOverlayObjects: {},
 		toBeRemoved: false,
 	};
@@ -327,12 +332,19 @@ let createApplianceMesh = (applianceObject) => {
 	let newApplianceMesh;
 	if (applianceObject.subType === "table") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
+		applianceObject.regularMat = tableMaterial;
+		applianceObject.highlightMat = tableMaterialHighlight;
 	}
 	else if (applianceObject.subType === "supply") {
 		newApplianceMesh = new THREE.Mesh(cubeGeometry, supplyMaterial);
+		applianceObject.regularMat = supplyMaterial;
+		applianceObject.highlightMat = supplyMaterialHighlight;
 	}
-	else if (applianceObject.subType === "orbSource") {
-		newApplianceMesh = new THREE.Mesh(cubeGeometry, tableMaterial);
+	else if (applianceObject.subType === "safe") {
+		newApplianceMesh = new THREE.Mesh(safeGeometry, safeMaterial);
+		//newApplianceMesh.scale.multiplyScalar(0.5);
+		applianceObject.regularMat = safeMaterial;
+		applianceObject.highlightMat = safeMaterialHighlight;
 	}
 	else {
 		console.log("appliance type missing: " + applianceObject.subType);
@@ -372,10 +384,7 @@ let createItem = (gs, itemType) => {
 }
 let createItemMesh = (itemObject) => {
 	let newItemMesh;
-	if (itemObject.subType === "orb") {
-		newItemMesh = new THREE.Mesh(sphereGeometry, itemMaterial);
-	}
-	else if (itemObject.subType === "sword") {
+	if (itemObject.subType === "sword") {
 		newItemMesh = new THREE.Mesh(swordGeometry, swordMaterial);
 	}
 	else if (itemObject.subType === "gun") {
@@ -496,6 +505,7 @@ let joinTeam1Button;
 let joinTeam2Button;
 let startGameButton;
 let pauseGameButton;
+let hitBreakpointButton;
 let desyncToolButton;
 
 let gameStartPlayerInfo;
@@ -506,21 +516,37 @@ let overlayList = [];
 
 let glTFLoader;
 
+let modelLoadList = [
+	{model: "rock2", name: "rock", setGeo: geo => rockGeometry = geo, setMat: mat => rockMaterial = mat},
+	{model: "safe1", name: "safe", setGeo: geo => {
+		safeGeometry = geo;
+		safeGeometry.scale(0.6, 0.6, 0.6);
+		safeGeometry.rotateX(Math.PI / 2);
+		safeGeometry.rotateZ(-Math.PI / 2);
+	}},
+];
+
 let init = () => {
 
 	glTFLoader = new GLTFLoader();
 
-	glTFLoader.load("models/rock2.gltf",
-		(gltf) => {
-			rockGeometry = gltf.scene.children[0].geometry;
-			rockMaterial = gltf.scene.children[0].material;
-			console.log("Rock Model Loaded");
-		},
-		(xhr) => {
-		},
-		(err) => {
-		}
-	);
+	modelLoadList.forEach(loadItem => {
+		glTFLoader.load(`models/${loadItem.model}.gltf`,
+			(gltf) => {
+				if (loadItem.setGeo !== undefined) {
+					loadItem.setGeo(gltf.scene.children[0].geometry);
+				}
+				if (loadItem.setMat !== undefined) {
+					loadItem.setMat(gltf.scene.children[0].material);
+				}
+				console.log(`${loadItem.name} model loaded`);
+			},
+			(xhr) => {
+			},
+			(err) => {
+			}
+		);
+	});
 
 	currentFrameSpan = document.getElementById("current_frame");
 	rollbacksSpan = document.getElementById("rollbacks");
@@ -588,6 +614,11 @@ let init = () => {
 		}
 	}
 
+	hitBreakpointButton = document.getElementById("hit_breakpoint");
+	hitBreakpointButton.onclick = (e) => {
+		debugger;
+	}
+
 	desyncToolButton = document.getElementById("run_desync_tool");
 	desyncToolButton.onclick = (e) => {
 		sendData("desyncTool", 0);
@@ -635,6 +666,8 @@ let init = () => {
 	herbMaterial = new THREE.MeshToonMaterial({color: 0x10c040});
 	powderMaterial = new THREE.MeshToonMaterial({color: 0x60a080});
 	//rockMaterial = new THREE.MeshToonMaterial({color: 0x994433});
+	safeMaterial = new THREE.MeshToonMaterial({color: 0x444444});
+	safeMaterialHighlight = new THREE.MeshToonMaterial({color: 0x555555});
 
 	// Single use meshes
 	floorMesh = new THREE.Mesh(planeGeometry, floorMaterial);
@@ -668,7 +701,10 @@ let initializeGameState = (gs) => {
 	for (let i = 0; i < 6; i++) {
 		let newTable = createAppliance(gs, "table", i + 1, -3);
 	}
-
+	let safe1 = createAppliance(gs, "safe", -7, 0);
+	safe1.assignedTeam = 1;
+	let safe2 = createAppliance(gs, "safe", 7, 0);
+	safe2.assignedTeam = 2;
 }
 
 let currentView = "entry";
@@ -1035,12 +1071,10 @@ let renderFrame = (gs) => {
 		gs.applianceList.forEach(applianceObject => {
 			if (playerObject.xTarget === applianceObject.xPosition &&
 				playerObject.yTarget === applianceObject.yPosition) {
-				let highlightToUse = (applianceObject.subType === "supply") ? supplyMaterialHighlight : tableMaterialHighlight;
-				applianceObject.connectedMesh.material = highlightToUse;
+				applianceObject.connectedMesh.material = applianceObject.highlightMat;
 			}
 			else {
-				let matToUse = (applianceObject.subType === "supply") ? supplyMaterial : tableMaterial;
-				applianceObject.connectedMesh.material = matToUse;
+				applianceObject.connectedMesh.material = applianceObject.regularMat;
 			}
 		});
 	});
