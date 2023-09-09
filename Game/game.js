@@ -18,6 +18,10 @@ let scene;
 let camera;
 let renderer;
 
+let xCamera = 0;
+let yCamera = 0;
+let zCamera = 10;
+
 let thirdPersonTest = false;
 let firstPersonTest = false;
 
@@ -287,6 +291,7 @@ let createPlayer = (gs, name, id, team) => {
 		id: id,
 		name: name,
 		team: team,
+		defeated: false,
 		toBeRemoved: false,
 	};
 	gs.playerList.push(newPlayer);
@@ -1133,6 +1138,29 @@ let renderFrame = (gs) => {
 		// Normal overhead view
 		localPlayerMesh.visible = true;
 		camera.rotation.set(0, 0, 0);
+		let xMin = gs.playerList.reduce((x, object) => Math.min(object.xPosition, x), Infinity);
+		xMin = Math.min(xMin, gs.applianceList.reduce((x, object) => Math.min(object.xPosition, x), Infinity));
+
+		let xMax = gs.playerList.reduce((x, object) => Math.max(object.xPosition, x), -Infinity);
+		xMax = Math.max(xMax, gs.applianceList.reduce((x, object) => Math.max(object.xPosition, x), -Infinity));
+
+		let yMin = gs.playerList.reduce((y, object) => Math.min(object.yPosition, y), Infinity);
+		yMin = Math.min(yMin, gs.applianceList.reduce((y, object) => Math.min(object.yPosition, y), Infinity));
+
+		let yMax = gs.playerList.reduce((y, object) => Math.max(object.yPosition, y), -Infinity);
+		yMax = Math.max(yMax, gs.applianceList.reduce((y, object) => Math.max(object.yPosition, y), -Infinity));
+
+		let sceneSize = Math.max(Math.abs(xMax - xMin), Math.abs(yMax - yMin));
+
+		let xCamTarget = (xMin + xMax) / 2;
+		let yCamTarget = (yMin + yMax) / 2;
+		let zCamTarget = 5 + sceneSize * 0.5;
+		xCamera = 0.9 * xCamera + 0.1 * xCamTarget;
+		yCamera = 0.9 * yCamera + 0.1 * yCamTarget;
+		zCamera = 0.9 * zCamera + 0.1 * zCamTarget;
+		camera.position.x = xCamera;
+		camera.position.y = yCamera;
+		camera.position.z = zCamera;
 	}
 	// Actually render the 3d scene
 	renderer.render(scene, camera);
@@ -1184,7 +1212,6 @@ let gameLogic = (gs) => {
 	let anyRemovals = false;
 	gs.playerList.forEach(playerObject => {
 		// Player Movement
-
 		let xSpeedChange = 0;
 		let ySpeedChange = 0;
 		if (playerObject.upPressed) {
@@ -1198,6 +1225,11 @@ let gameLogic = (gs) => {
 		}
 		if (playerObject.rightPressed) {
 			xSpeedChange += 0.02;
+		}
+		// Defeated players are very slow
+		if (playerObject.defeated) {
+			xSpeedChange *= 0.1;
+			ySpeedChange *= 0.1;
 		}
 		// Diagonal movement
 		if (xSpeedChange !== 0 && ySpeedChange !== 0) {
@@ -1227,6 +1259,10 @@ let gameLogic = (gs) => {
 		}
 		let previousRotation = playerObject.rotation;
 		if (rotationChange !== 0) {
+			// Defeated players turn slower
+			if (playerObject.defeated) {
+				rotationChange *= 0.5;
+			}
 			// Apply rotation
 			playerObject.rotation += rotationChange;
 			// Don't overshoot the targetRotation
@@ -1348,19 +1384,22 @@ let gameLogic = (gs) => {
 			if (playerObject.holdingItem && playerObject.heldItem.hasAbility) {
 				// Use ability
 				if (playerObject.releasedUse) {
-					let abilityType = playerObject.heldItem.subType;
-					let projectileType;
-					if (abilityType === "gun") {
-						projectileType = "bullet";
+					// Defeated players cannot fire projectiles
+					if (!playerObject.defeated) {
+						let abilityType = playerObject.heldItem.subType;
+						let projectileType;
+						if (abilityType === "gun") {
+							projectileType = "bullet";
+						}
+						else if (abilityType === "sword") {
+							projectileType = "swordSwing";
+						}
+						else if (abilityType === "ball") {
+							projectileType = "thrownBall";
+						}
+						let projectileObject = createProjectile(gs, projectileType, playerObject.xPosition, playerObject.yPosition, playerObject.rotation, 0.1);
+						projectileObject.sourcePlayer = playerObject;
 					}
-					else if (abilityType === "sword") {
-						projectileType = "swordSwing";
-					}
-					else if (abilityType === "ball") {
-						projectileType = "thrownBall";
-					}
-					let projectileObject = createProjectile(gs, projectileType, playerObject.xPosition, playerObject.yPosition, playerObject.rotation, 0.1);
-					projectileObject.sourcePlayer = playerObject;
 				}
 			}
 			else {
@@ -1370,7 +1409,12 @@ let gameLogic = (gs) => {
 						if (playerObject.xTarget === applianceObject.xPosition && playerObject.yTarget === applianceObject.yPosition) {
 							let targetItem = applianceObject.heldItem;
 							if (!targetItem.processed) {
-								targetItem.progress += 1;
+								let progressAmt = 1;
+								// defeated players are very slow at making progress
+								if (playerObject.defeated) {
+									progressAmt = 0.1;
+								}
+								targetItem.progress += progressAmt;
 							}
 							if (targetItem.progress >= 100) {
 								targetItem.processed = true;
@@ -1394,6 +1438,10 @@ let gameLogic = (gs) => {
 			if (projectileObject.sourcePlayer !== playerObject && collisionTest(playerObject, projectileObject)) {
 				// Subtract 1 health from player
 				playerObject.health -= 1;
+				// Check if player is defeated
+				if (playerObject.health <= 0) {
+					playerObject.defeated = true;
+				}
 				// Create hit effect
 				let effectObject = createEffect(gs, "hit", projectileObject.xPosition, projectileObject.yPosition);
 				// Remove projectile
@@ -1588,6 +1636,12 @@ let setupNetworkConnection = () => {
 				playerFrameAdvantages = [];
 				gameStartPlayerInfo.forEach(playerData => {
 					let newPlayerObject = createPlayer(currentGameState, playerData.playerName, playerData.playerID, playerData.playerTeam);
+					if (newPlayerObject.team === 1) {
+						newPlayerObject.xPosition = -6;
+					}
+					else if (newPlayerObject.team === 2) {
+						newPlayerObject.xPosition = 6;
+					}
 					// Don't add local player to playerFrameAdvantages
 					if (playerData.playerID !== localPlayerID) {
 						playerFrameAdvantages.push({id: playerData.playerID, frameAdvantage: 0});

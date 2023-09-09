@@ -109,8 +109,26 @@ p {
 	top: 0;
 	font-size: 10px;
 }
+.team_boxes_row {
+	display: flex;
+	flex-direction: row;
+}
+.team_box_container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
 .team_box {
 	padding-top: 30px;
+	width: 300px;
+	height: 300px;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+.player_entry {
+	max-width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
 }
 
 .game_overlay {
@@ -130,15 +148,15 @@ p {
 	top: var(--y-pos);*/
 }
 .ov_item.player_name {
-    /*left: calc(var(--x-pos) - 30px);
-    top: calc(var(--y-pos) - 65px);*/
-    transform: translate(var(--x-pos), var(--y-pos)) translate(-30px, -65px);
-    width: 60px;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    white-space: nowrap;
+	/*left: calc(var(--x-pos) - 30px);
+	top: calc(var(--y-pos) - 65px);*/
+	transform: translate(var(--x-pos), var(--y-pos)) translate(-30px, -65px);
+	width: 60px;
+	text-align: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	white-space: nowrap;
 }
 .ov_item.player_name.team1 {
 	color: #ff7777;

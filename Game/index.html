@@ -18,7 +18,18 @@
 				<p>W A S D - Move</p>
 				<p>P - pick up and put down item</p>
 				<p>O - use held item or interact with items or appliances</p>
-				<p>Spacebar - hold still but can still rotate</p>
+				<p>Spacebar - hold still to rotate in place</p>
+				<p>---</p>
+				<p>Goals: Accomplish one of these to win a round</p>
+				<p>Steal the other team's flag from their safe</p>
+				<p>Defeat all enemy players</p>
+				<p>Alchemize gold and put it in your team's safe</p>
+				<p>---</p>
+				<p>Recipes:</p>
+				<p>Gold bar: Lead bar + alchemy paper + potion</p>
+				<p>Lead bar: Lead ore @ smelter</p>
+				<p>Alchemy paper: Blank paper @ quill station</p>
+				<p>Potion: Glass bottle + herb @ sink</p>
 			</div>
 			<div class="box rooms_box">
 				<p>Rooms</p>
@@ -39,14 +50,20 @@
 	<div class="page" view="waiting">
 		<div class="box waiting_box">
 			<button id="leave_room">Leave Room</button>
-			<div class="box team_box" id="team_1">
-				<div class="team_label">Team 1</div>
+			<div class="team_boxes_row">
+				<div class="team_box_container">
+					<div class="box team_box" id="team_1">
+						<div class="team_label">Team 1</div>
+					</div>
+					<button id="join_team_1">Join Team 1</button>
+				</div>
+				<div class="team_box_container">
+					<div class="box team_box" id="team_2">
+						<div class="team_label">Team 2</div>
+					</div>
+					<button id="join_team_2">Join Team 2</button>
+				</div>
 			</div>
-			<button id="join_team_1">Join Team 1</button>
-			<div class="box team_box" id="team_2">
-				<div class="team_label">Team 2</div>
-			</div>
-			<button id="join_team_2">Join Team 2</button>
 			<button id="start_game">Start Game</button>
 		</div>
 	</div>
