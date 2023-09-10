@@ -94,6 +94,10 @@ p {
 .box.controls_box {
 	font-size: 12px;
 }
+.box.controls_box p {
+	width: 100%;
+	text-align: left;
+}
 
 .room_list {
 	min-width: 200px;
