@@ -1309,22 +1309,50 @@ let gameLogic = (gs) => {
 					// Left or right side
 					if (playerObject.xPosition > appliance.xPosition) {
 						// Right side
-						playerObject.xSpeed = Math.max(playerObject.xSpeed, 1 + appliance.xPosition - playerObject.xPosition);
+						// Make sure appliance's right side isn't covered by another appliance
+						let rightSideCovered = gs.applianceList.some(otherAppliance => {
+							return otherAppliance.xPosition === appliance.xPosition + 1 &&
+								otherAppliance.yPosition === appliance.yPosition;
+						});
+						if (!rightSideCovered) {
+							playerObject.xSpeed = Math.max(playerObject.xSpeed, 1 + appliance.xPosition - playerObject.xPosition);
+						}
 					}
 					else {
 						// Left side
-						playerObject.xSpeed = Math.min(playerObject.xSpeed, -1 + appliance.xPosition - playerObject.xPosition);
+						// Make sure appliance's right side isn't covered by another appliance
+						let leftSideCovered = gs.applianceList.some(otherAppliance => {
+							return otherAppliance.xPosition === appliance.xPosition - 1 &&
+								otherAppliance.yPosition === appliance.yPosition;
+						});
+						if (!leftSideCovered) {
+							playerObject.xSpeed = Math.min(playerObject.xSpeed, -1 + appliance.xPosition - playerObject.xPosition);
+						}
 					}
 				}
 				else {
 					// Top or bottom side
 					if (playerObject.yPosition > appliance.yPosition) {
 						// Bottom side
-						playerObject.ySpeed = Math.max(playerObject.ySpeed, 1 + appliance.yPosition - playerObject.yPosition);
+						// Make sure appliance's bottom side isn't covered by another appliance
+						let bottomSideCovered = gs.applianceList.some(otherAppliance => {
+							return otherAppliance.xPosition === appliance.xPosition &&
+								otherAppliance.yPosition === appliance.yPosition + 1;
+						});
+						if (!bottomSideCovered) {
+							playerObject.ySpeed = Math.max(playerObject.ySpeed, 1 + appliance.yPosition - playerObject.yPosition);
+						}
 					}
 					else {
 						// Top side
-						playerObject.ySpeed = Math.min(playerObject.ySpeed, -1 + appliance.yPosition - playerObject.yPosition);
+						// Make sure appliance's right side isn't covered by another appliance
+						let topSideCovered = gs.applianceList.some(otherAppliance => {
+							return otherAppliance.xPosition === appliance.xPosition &&
+								otherAppliance.yPosition === appliance.yPosition - 1;
+						});
+						if (!topSideCovered) {
+							playerObject.ySpeed = Math.min(playerObject.ySpeed, -1 + appliance.yPosition - playerObject.yPosition);
+						}
 					}
 				}
 			}
